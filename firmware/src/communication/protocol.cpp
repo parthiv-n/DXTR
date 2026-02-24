@@ -1,0 +1,1 @@
+// Communication protocols used for the ESP32 include I2C and ADC
