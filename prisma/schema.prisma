@@ -1,0 +1,163 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Patient {
+  id             String          @id
+  name           String
+  sessions       Session[]
+  plan           MissionPlan?
+  assignments    Assignment[]
+  dailyProgress  DailyProgress[]
+  gameConfigs    GameConfig[]
+}
+
+model Clinician {
+  id          String       @id
+  name        String
+  assignments Assignment[]
+}
+
+model Assignment {
+  id          String    @id @default(uuid())
+  clinicianId String
+  patientId   String
+  clinician   Clinician @relation(fields: [clinicianId], references: [id])
+  patient     Patient   @relation(fields: [patientId], references: [id])
+
+  @@unique([clinicianId, patientId])
+}
+
+model MissionPlan {
+  id        String  @id @default(uuid())
+  patientId String  @unique
+  data      String  // JSON string of MissionPlanData
+  patient   Patient @relation(fields: [patientId], references: [id])
+}
+
+model Session {
+  id              String          @id @default(uuid())
+  patientId       String
+  gameId          String
+  source          String          // "usb" | "sim" | "wifi"
+  startedAt       DateTime        @default(now())
+  endedAt         DateTime?
+  sampleRateHz    Int
+  firmwareVersion String?
+  patient         Patient         @relation(fields: [patientId], references: [id])
+  chunks          SessionChunk[]
+  summary         SessionSummary?
+}
+
+model SessionChunk {
+  id        String  @id @default(uuid())
+  sessionId String
+  seq       Int
+  t0        Int
+  t1        Int
+  samples   String  // JSON string of Sample[]
+  session   Session @relation(fields: [sessionId], references: [id])
+
+  @@unique([sessionId, seq])
+}
+
+model SessionSummary {
+  id            String  @id @default(uuid())
+  sessionId     String  @unique
+  durationMs    Int
+  repCount      Int
+  peakGrip      Float
+  avgGrip       Float
+  romPronation  Float
+  romSupination Float
+  smoothness    Float
+  session       Session @relation(fields: [sessionId], references: [id])
+}
+
+// =============================================
+// ADAPTIVE GAME CONFIGURATION
+// =============================================
+
+model GameConfig {
+  id                       String    @id @default(uuid())
+  patientId                String
+  gameId                   String
+  inputType                String    @default("gyroscope") // "gyroscope" | "fsr" | "button"
+
+  // Current difficulty (JSON, input-type-specific)
+  // e.g. {"targetPronation":15,"targetSupination":15,"deadZone":5}
+  difficultyParams         String    @default("{}")
+
+  // Calibration
+  calibrationComplete      Boolean   @default(false)
+  calibrationSetsCompleted Int       @default(0)
+  baselineData             String?   // JSON: recorded baseline capabilities
+
+  // Adaptive progression
+  autoProgressionEnabled   Boolean   @default(true)
+  consecutiveGoodSets      Int       @default(0)
+  consecutiveStruggleSets  Int       @default(0)
+  lastAdjustmentAt         DateTime?
+  lastAdjustmentDirection  String?   // "up" | "down"
+
+  // Clinician safety rails (JSON)
+  minParams                String?   // JSON: min allowed difficulty values
+  maxParams                String?   // JSON: max allowed difficulty values
+
+  patient                  Patient   @relation(fields: [patientId], references: [id])
+
+  @@unique([patientId, gameId])
+}
+
+// =============================================
+// DAILY MISSION PROGRESS TRACKING
+// =============================================
+
+model DailyProgress {
+  id        String    @id @default(uuid())
+  patientId String
+  gameId    String
+  date      String    // "YYYY-MM-DD" format
+  setsTarget Int      @default(5)
+  patient   Patient   @relation(fields: [patientId], references: [id])
+  sets      GameSet[]
+
+  @@unique([patientId, gameId, date])
+}
+
+model GameSet {
+  id               String         @id @default(uuid())
+  dailyProgressId  String
+  setNumber        Int            // 1-5
+  startedAt        DateTime       @default(now())
+  completedAt      DateTime?
+  completed        Boolean        @default(false)
+  totalReps        Int            @default(10)
+  achievedReps     Int            @default(0)
+  dailyProgress    DailyProgress  @relation(fields: [dailyProgressId], references: [id])
+  reps             RepResult[]
+
+  @@unique([dailyProgressId, setNumber])
+}
+
+model RepResult {
+  id                String   @id @default(uuid())
+  gameSetId         String
+  repNumber         Int      // 1-10
+  expectedDirection String   // "left" | "right"
+  actualDirection   String?  // "left" | "right" | null if missed
+  achievedAngle     Float    // roll angle in degrees at time of dodge
+  success           Boolean  @default(false)
+  reactionTimeMs    Int?     // ms from prompt shown to dodge triggered
+  gameSet           GameSet  @relation(fields: [gameSetId], references: [id])
+
+  @@unique([gameSetId, repNumber])
+}
