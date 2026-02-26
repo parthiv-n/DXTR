@@ -11,6 +11,7 @@ void loop() {
     
     Serial.print("Roll: "); Serial.print(data.roll);
     Serial.print(" Pitch: "); Serial.println(data.pitch);
+    Serial.print("Yaw: "); Serial.println(data.yaw);
     
     delay(200);
 }
