@@ -45,7 +45,7 @@ IMUData imu_read() {
   IMUData data = {0};
 
   if (myICM.dataReady()) {
-    myICM.getAGMT(); // updates accel/gyro/mag/temp
+    myICM.getAGMT(); // fetches data from IMU sensors accel/gyro/mag/temp
 
     // SparkFun library accel units are mg by default
     // Convert mg -> m/s^2: (mg / 1000) * 9.80665
@@ -54,15 +54,28 @@ IMUData imu_read() {
     float ax = (myICM.accX() / 1000.0f) * g;
     float ay = (myICM.accY() / 1000.0f) * g;
     float az = (myICM.accZ() / 1000.0f) * g;
+    
 
     data.roll  = atan2f(ay, az) * 180.0f / PI;
     data.pitch = atan2f(-ax, sqrtf(ay*ay + az*az)) * 180.0f / PI;
+    
     data.gx = myICM.gyrX();
     data.gy = myICM.gyrY();
     data.gz = myICM.gyrZ();
     data.mx = myICM.magX();
     data.my = myICM.magY();
     data.mz = myICM.magZ();
+
+    // Yaw calculation comes after roll, pitch and mag are set
+    float rollRad = data.roll * PI / 180.0f;
+    float pitchRad = data.pitch * PI / 180.0f;
+
+    float magX_comp = data.mx * cosf(pitchRad) + data.my * sinf(rollRad) * sinf(pitchRad) - data.mz * cosf(rollRad) * sinf(pitchRad);
+
+    float magY_comp = data.my * cosf(rollRad) + data.mz * sinf(rollRad);
+
+    data.yaw = atan2f(-magY_comp, magX_comp) * 180.0f / PI;
+
   } 
 
   data.fsr = analogRead(FSR_PIN);
