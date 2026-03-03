@@ -57,9 +57,9 @@ export function ProgressOverviewHeader({
       <div className="flex items-center gap-3">
         <div>
           <h1 className="text-xl font-bold text-dxtr-brown leading-tight">
-            {selectedPatient?.name ?? "Patient"}
+            {selectedPatient?.name ?? "Select Patient"}
           </h1>
-          <span className="text-xs text-gray-400">{selectedPatientId}</span>
+          <span className="text-xs text-gray-400">{selectedPatientId || "No patient selected"}</span>
         </div>
         {patients.length > 1 && (
           <Select value={selectedPatientId} onValueChange={onPatientChange}>
