@@ -37,3 +37,8 @@ next-env.d.ts
 # prisma
 /prisma/dev.db
 /prisma/dev.db-journal
+
+# alien game - exclude venv, nested git, and Python cache
+/public/alien_abduction_game/venv/
+/public/alien_abduction_game/.git/
+/public/alien_abduction_game/__pycache__/
