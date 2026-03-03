@@ -11,7 +11,7 @@ import { RepsTimelineStrip } from "@/components/progress/RepsTimelineStrip";
 import { ProgressHeroCard } from "@/components/progress/ProgressHeroCard";
 import { GameCardGrid } from "@/components/progress/GameCardGrid";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertCircle, Database } from "lucide-react";
 
 type ProgressResponse = AggregatedProgress & {
   patientId: string;
@@ -75,6 +75,8 @@ function ClinicianDashboardInner() {
   const dayParam = searchParams.get("day");
 
   const [patients, setPatients] = useState<PatientInfo[]>([]);
+  const [patientsLoading, setPatientsLoading] = useState(true);
+  const [patientsError, setPatientsError] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [expandedGameId, setExpandedGameId] = useState<string | null>(gameIdParam);
   const [selectedDay, setSelectedDay] = useState<string | null>(dayParam);
@@ -83,16 +85,23 @@ function ClinicianDashboardInner() {
 
   useEffect(() => {
     async function loadPatients() {
+      setPatientsLoading(true);
+      setPatientsError(null);
       try {
         const res = await fetch("/api/patients");
-        if (!res.ok) return;
+        if (!res.ok) {
+          setPatientsError("Failed to load patients. Check your database connection.");
+          return;
+        }
         const data: PatientInfo[] = await res.json();
         setPatients(data);
         if (data.length > 0 && !selectedPatientId) {
           setSelectedPatientId(data[0].id);
         }
       } catch {
-        // silent
+        setPatientsError("Failed to load patients. Check your database connection.");
+      } finally {
+        setPatientsLoading(false);
       }
     }
     loadPatients();
@@ -124,6 +133,45 @@ function ClinicianDashboardInner() {
 
   const rangeDays = parseInt(rangeParam, 10);
 
+  // Show a full-page state when patients haven't loaded yet or failed
+  if (patientsLoading) {
+    return (
+      <AppShell variant="clinician">
+        <div className="flex justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-dxtr-teal" />
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (patientsError) {
+    return (
+      <AppShell variant="clinician">
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+          <AlertCircle className="w-10 h-10 text-red-400" />
+          <p className="text-red-500 font-medium">{patientsError}</p>
+          <p className="text-xs text-gray-400 max-w-sm">
+            Make sure <code className="bg-gray-100 px-1 rounded">DATABASE_URL</code> is set in your Vercel environment variables and the database is reachable.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (patients.length === 0) {
+    return (
+      <AppShell variant="clinician">
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+          <Database className="w-10 h-10 text-gray-300" />
+          <p className="text-gray-500 font-medium">No patients in database</p>
+          <p className="text-xs text-gray-400 max-w-sm">
+            Run the seed SQL in your Supabase SQL Editor to add the default patients, or add patients directly to the database.
+          </p>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell variant="clinician">
       <TooltipProvider>
@@ -149,7 +197,10 @@ function ClinicianDashboardInner() {
                 <Loader2 className="w-6 h-6 animate-spin text-dxtr-teal" />
               </div>
             ) : error ? (
-              <div className="text-red-500 text-sm mb-4">{error}</div>
+              <div className="flex items-center gap-2 text-red-500 text-sm mb-4">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </div>
             ) : progress ? (
               <>
                 <RepsTimelineStrip
@@ -188,7 +239,8 @@ function ClinicianDashboardInner() {
               />
             ) : (
               <div className="text-center text-gray-400 py-10">
-                <p className="text-sm">No exercise data in this range</p>
+                <p className="text-sm">No exercise data in this range yet.</p>
+                <p className="text-xs mt-1 text-gray-300">Data will appear once the patient completes sessions.</p>
               </div>
             )}
           </div>
