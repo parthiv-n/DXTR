@@ -32,9 +32,9 @@ export default function CarRacerPage() {
       {/* Floating back button - top left corner */}
       <Link
         href="/patient"
-        className="fixed top-3 left-3 z-50 inline-flex items-center gap-1.5 bg-black/50 hover:bg-black/80 text-white/80 hover:text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm transition-all"
+        className="fixed top-5 left-5 z-50 inline-flex items-center gap-2 bg-black/50 hover:bg-black/80 text-white/80 hover:text-white text-base px-5 py-2.5 rounded-full backdrop-blur-sm transition-all"
       >
-        <ArrowLeft className="w-3 h-3" />
+        <ArrowLeft className="w-5 h-5" />
         Back
       </Link>
     </div>

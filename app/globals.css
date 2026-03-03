@@ -10,6 +10,14 @@
   body {
     @apply bg-white;
   }
+
+  :root {
+    --chart-1: 95 45% 74%;
+    --chart-2: 130 37% 64%;
+    --chart-3: 48 90% 71%;
+    --chart-4: 195 48% 58%;
+    --chart-5: 14 78% 59%;
+  }
 }
 
 @layer utilities {
