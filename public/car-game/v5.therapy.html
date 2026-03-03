@@ -1,0 +1,2053 @@
+<!DOCTYPE html> 
+
+<html>
+<head>
+  <title>DXTR Stroke Rehabilitation - Therapy Mode</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <link href="common.css" rel="stylesheet" type="text/css" />
+  <style>
+    /* ===== FULLSCREEN OVERRIDES ===== */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    /* Hide the sidebar controls table completely */
+    #controls { display: none !important; }
+    /* Hide the old sidebar ESP32 panel */
+    #esp32-panel { display: none !important; }
+    /* Hide mute button */
+    #mute { display: none !important; }
+
+    /* Make game container fill viewport while keeping 4:3 aspect ratio */
+    #racer {
+      position: absolute !important;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      /* Pick the largest 4:3 box that fits the viewport */
+      width: min(100vw, 133.33vh) !important;   /* 4/3 × 100vh */
+      height: min(100vh, 75vw) !important;       /* 3/4 × 100vw */
+      margin: 0 !important;
+      border: none !important;
+      z-index: 0;
+    }
+
+    #canvas {
+      position: absolute !important;
+      top: 0; left: 0;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 0;
+      background-color: #72D7EE;
+    }
+
+    /* ===== CONNECTION OVERLAY ===== */
+    #connection-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 500;
+      background: linear-gradient(160deg, #FFFFFF 0%, #f5f3f0 50%, #FFFFFF 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #6B5344;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+    }
+
+    #connection-overlay h1 {
+      font-size: 2.8em;
+      margin-bottom: 0.3em;
+      color: #6B5344;
+    }
+
+    #connection-overlay .subtitle {
+      font-size: 1.2em;
+      color: #8B7355;
+      margin-bottom: 2.5em;
+    }
+
+    .overlay-btn-row {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .overlay-connect-btn {
+      padding: 20px 48px;
+      font-size: 1.3em;
+      font-weight: bold;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s, transform 0.15s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 48px;
+    }
+
+    .overlay-connect-btn:hover { transform: scale(1.03); }
+    .overlay-connect-btn:active { transform: scale(0.97); }
+    .overlay-connect-btn:focus-visible { outline: 3px solid #6B5344; outline-offset: 3px; }
+    .overlay-connect-btn:disabled { background-color: #ccc; color: #888; cursor: not-allowed; box-shadow: none; opacity: 0.6; }
+
+    #overlay-ble-btn {
+      background-color: #5BB5CF;
+      box-shadow: 0 4px 16px rgba(91, 181, 207, 0.35);
+    }
+    #overlay-ble-btn:hover:not(:disabled) { background-color: #4aa3bd; }
+
+    #overlay-usb-btn {
+      background-color: #6B5344;
+      box-shadow: 0 4px 16px rgba(107, 83, 68, 0.3);
+    }
+    #overlay-usb-btn:hover:not(:disabled) { background-color: #7d6355; }
+
+    #overlay-status {
+      margin-top: 1.5em;
+      font-size: 1.05em;
+      min-height: 1.5em;
+      font-weight: 500;
+    }
+
+    #overlay-status.error { color: #cc3333; }
+    #overlay-status.connecting { color: #6B5344; }
+    #overlay-status.connected { color: #3a7a3e; }
+
+    #overlay-skip {
+      margin-top: 2em;
+      padding: 14px 36px;
+      font-size: 1em;
+      color: #8B7355;
+      background: transparent;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      cursor: pointer;
+      min-height: 44px;
+      transition: border-color 0.3s, color 0.3s;
+    }
+
+    #overlay-skip:hover {
+      border-color: #6B5344;
+      color: #6B5344;
+    }
+
+    #overlay-skip:focus-visible {
+      outline: 3px solid #6B5344;
+      outline-offset: 3px;
+    }
+
+    /* ===== IN-GAME OVERLAYS ===== */
+    #therapy-video {
+      position: absolute;
+      bottom: 15px;
+      right: 15px;
+      width: 180px;
+      height: 180px;
+      z-index: 100;
+      display: none;
+      border: 3px solid #fff;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0,0,0,0.6);
+      background: #000;
+      object-fit: cover;
+    }
+
+    #rep-counter-container {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 50;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 15px 25px;
+      border: 3px solid #5BB5CF;
+      border-radius: 10px;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #6B5344;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    }
+
+    #direction-indicator {
+      position: absolute;
+      bottom: 200px;
+      right: 15px;
+      z-index: 101;
+      background-color: #F5D76E;
+      padding: 8px 15px;
+      border: 2px solid #e8c94a;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: bold;
+      color: #6B5344;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: none;
+    }
+
+    #session-complete {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 200;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+    }
+
+    #session-complete-card {
+      background: #fff;
+      border-radius: 20px;
+      padding: 48px 56px;
+      max-width: 520px;
+      width: 90%;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    #session-complete h1 {
+      font-size: 2.6em;
+      margin-bottom: 16px;
+      color: #7BC47F;
+    }
+
+    #session-complete p {
+      font-size: 1.3em;
+      margin-bottom: 28px;
+      color: #6B5344;
+    }
+
+    #session-complete button {
+      font-size: 1.2em;
+      padding: 16px 44px;
+      background-color: #c2e1a5;
+      color: #6B5344;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      min-height: 48px;
+      transition: background-color 0.3s, transform 0.15s;
+    }
+
+    #session-complete button:hover {
+      background-color: #aed68e;
+      transform: scale(1.02);
+    }
+
+    #session-complete button:focus-visible {
+      outline: 3px solid #6B5344;
+      outline-offset: 3px;
+    }
+
+    #session-complete button + button {
+      margin-left: 12px;
+      background-color: #6B5344;
+      color: #fff;
+    }
+
+    #session-complete button + button:hover {
+      background-color: #7d6355;
+    }
+
+    /* Set counter */
+    #set-counter-container {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 10px 25px;
+      border: 2px solid #c2e1a5;
+      border-radius: 10px;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #6B5344;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    }
+
+    /* ===== DIFFICULTY TOAST ===== */
+    #difficulty-toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-120px);
+      z-index: 600;
+      padding: 14px 32px;
+      border-radius: 12px;
+      font-size: 1.2em;
+      font-weight: bold;
+      color: #fff;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      transition: transform 0.5s ease, opacity 0.5s ease;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #difficulty-toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+    #difficulty-toast.level-up {
+      background: #7BC47F;
+      color: #fff;
+    }
+    #difficulty-toast.level-down {
+      background: #E8734A;
+      color: #fff;
+    }
+    #difficulty-toast.calibrating {
+      background: #5BB5CF;
+      color: #fff;
+    }
+    #difficulty-toast.maintained {
+      background: #c2e1a5;
+      color: #6B5344;
+    }
+
+    /* In-game ESP32 status indicator */
+    #esp32-game-status {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 50;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 8px 15px;
+      border: 2px solid #7BC47F;
+      border-radius: 8px;
+      font-size: 0.9em;
+      font-weight: bold;
+      color: #3a7a3e;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: none;
+    }
+
+    #esp32-game-status.disconnected {
+      background-color: rgba(255, 255, 255, 0.95);
+      border-color: #ccc;
+      color: #999;
+    }
+
+    #esp32-game-roll {
+      font-size: 1.1em;
+    }
+
+    /* ===== CRASH OVERLAY ===== */
+    #crash-overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 150;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    #crash-explosion {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200px; height: 200px;
+      z-index: 152;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 0.4s ease;
+    }
+    #crash-explosion.fade-out { opacity: 0; }
+
+    #crash-grey {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 151;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+    #crash-grey.visible { opacity: 1; }
+
+    #crash-prompt-card {
+      position: relative;
+      z-index: 153;
+      background: #fff;
+      border-radius: 20px;
+      padding: 40px 48px;
+      max-width: 420px;
+      width: 85%;
+      text-align: center;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    #crash-prompt-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    #crash-prompt-card h2 {
+      font-size: 2.2em;
+      color: #E8734A;
+      margin: 0 0 12px 0;
+    }
+
+    #crash-prompt-card p {
+      font-size: 1.2em;
+      color: #6B5344;
+      margin: 0 0 24px 0;
+    }
+
+    #crash-retry-btn {
+      font-size: 1.2em;
+      padding: 16px 44px;
+      background-color: #c2e1a5;
+      color: #6B5344;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      min-height: 48px;
+      transition: background-color 0.3s, transform 0.15s;
+    }
+    #crash-retry-btn:hover {
+      background-color: #aed68e;
+      transform: scale(1.02);
+    }
+    #crash-retry-btn:focus-visible {
+      outline: 3px solid #6B5344;
+      outline-offset: 3px;
+    }
+
+    /* Hidden elements needed by JS but not displayed */
+    #esp32-status, #roll-value, #roll-marker,
+    #currentLeftThreshold, #currentRightThreshold, #currentDeadZone { display: none; }
+  </style>
+</head> 
+
+<body>
+
+  <!-- ===== ESP32 CONNECTION OVERLAY (shown first) ===== -->
+  <div id="connection-overlay">
+    <h1>&#x1F3CE; Car Racer</h1>
+    <p class="subtitle">Connect your DXTR controller to begin</p>
+    <div class="overlay-btn-row">
+      <button id="overlay-ble-btn" class="overlay-connect-btn" onclick="overlayConnectBLE()">&#x1F4F6; Bluetooth</button>
+      <button id="overlay-usb-btn" class="overlay-connect-btn" onclick="overlayConnect()">&#x1F50C; USB Serial</button>
+    </div>
+    <div id="overlay-status"></div>
+    <button id="overlay-skip" onclick="skipConnection()">Continue without device</button>
+  </div>
+
+  <!-- ===== DIFFICULTY ADJUSTMENT TOAST ===== -->
+  <div id="difficulty-toast"></div>
+
+  <!-- Hidden controls table (needed by JS but invisible) -->
+  <table id="controls">
+    <tr><td id="fps" colspan="2"></td></tr>
+    <tr><td>
+      <select id="resolution" style="display:none">
+        <option value='fine'>Fine (1280x960)</option>
+        <option selected value='high'>High (1024x768)</option>
+        <option value='medium'>Medium (640x480)</option>
+        <option value='low'>Low (480x360)</option>
+      </select>
+    </td></tr>
+    <tr><td><select id="lanes" style="display:none"><option selected>2</option></select></td></tr>
+    <tr><td><span id="currentRoadWidth"></span><input id="roadWidth" type='hidden' value='2000'></td></tr>
+    <tr><td><span id="currentCameraHeight"></span><input id="cameraHeight" type='hidden' value='1000'></td></tr>
+    <tr><td><span id="currentDrawDistance"></span><input id="drawDistance" type='hidden' value='300'></td></tr>
+    <tr><td><span id="currentFieldOfView"></span><input id="fieldOfView" type='hidden' value='100'></td></tr>
+    <tr><td><span id="currentFogDensity"></span><input id="fogDensity" type='hidden' value='5'></td></tr>
+  </table>
+
+  <!-- Hidden ESP32 panel elements (needed by JS) -->
+  <div id="esp32-panel">
+    <button id="esp32-connect-btn"></button>
+    <div id="esp32-status" class="disconnected"></div>
+    <span id="roll-value">0.0</span>
+    <div id="roll-marker"></div>
+    <span id="currentLeftThreshold">15</span>
+    <span id="currentRightThreshold">-15</span>
+    <span id="currentDeadZone">5</span>
+    <input id="leftThreshold" type="hidden" value="15">
+    <input id="rightThreshold" type="hidden" value="15">
+    <input id="deadZone" type="hidden" value="5">
+  </div>
+
+  <!-- ===== GAME AREA (hidden until connected) ===== -->
+  <div id="racer" style="display:none;">
+    <!-- ESP32 In-Game Status -->
+    <div id="esp32-game-status" class="disconnected">
+      ESP32: <span id="esp32-game-roll">--</span>
+    </div>
+
+    <!-- Set Counter (top left, below ESP32 status) -->
+    <div id="set-counter-container">
+      <span id="set-counter">Set 1 / 5</span>
+    </div>
+
+    <!-- Rep Counter -->
+    <div id="rep-counter-container">
+      Reps: <span id="rep-counter">1 / 10</span>
+    </div>
+
+    <!-- Direction Indicator -->
+    <div id="direction-indicator">
+      Press: <span id="direction-text">LEFT</span>
+    </div>
+
+    <!-- Therapy Video Overlay -->
+    <video id="therapy-video" loop muted playsinline>
+      <source id="video-source" src="" type="video/mp4">
+    </video>
+
+    <!-- Session Complete Overlay -->
+    <div id="session-complete">
+      <div id="session-complete-card">
+        <h1>Session Complete!</h1>
+        <p>Great job! You completed all 10 repetitions.</p>
+        <button onclick="location.reload()">Start New Session</button>
+      </div>
+    </div>
+
+    <!-- Crash Overlay -->
+    <div id="crash-overlay">
+      <img id="crash-explosion" src="images/explosion.gif" alt="" />
+      <div id="crash-grey"></div>
+      <div id="crash-prompt-card">
+        <h2>Crash!</h2>
+        <p id="crash-message">You didn't dodge in time.</p>
+        <button id="crash-retry-btn" onclick="retryAfterCrash()">Try Again</button>
+      </div>
+    </div>
+
+    <canvas id="canvas">
+      Sorry, this example cannot be run because your browser does not support the &lt;canvas&gt; element
+    </canvas>
+  </div>
+
+  <audio id='music'>
+    <source src="music/racer.ogg">
+    <source src="music/racer.mp3">
+  </audio>
+  <span id="mute"></span>
+
+  <script src="stats.js"></script>
+  <script src="common.js"></script>
+  <script>
+
+    //=========================================================================
+    // CONNECTION OVERLAY LOGIC
+    //=========================================================================
+
+    var gameStarted = false;
+
+    function setOverlayButtonsDisabled(disabled) {
+      document.getElementById('overlay-ble-btn').disabled = disabled;
+      document.getElementById('overlay-usb-btn').disabled = disabled;
+    }
+
+    async function overlayConnect() {
+      var status = document.getElementById('overlay-status');
+
+      if (!('serial' in navigator)) {
+        status.className = 'error';
+        status.innerHTML = 'Web Serial API not supported. Use Chrome or Edge.';
+        return;
+      }
+
+      setOverlayButtonsDisabled(true);
+      status.className = 'connecting';
+      status.innerHTML = 'Waiting for USB device selection...';
+
+      try {
+        var success = await connectESP32();
+        if (success) {
+          status.className = 'connected';
+          status.innerHTML = 'Connected via USB! Starting game...';
+          setTimeout(launchGame, 600);
+        } else {
+          status.className = 'error';
+          status.innerHTML = 'Connection failed. Please try again.';
+          setOverlayButtonsDisabled(false);
+        }
+      } catch (err) {
+        status.className = 'error';
+        status.innerHTML = 'Connection failed: ' + err.message;
+        setOverlayButtonsDisabled(false);
+      }
+    }
+
+    async function overlayConnectBLE() {
+      var status = document.getElementById('overlay-status');
+
+      if (!('bluetooth' in navigator)) {
+        status.className = 'error';
+        status.innerHTML = 'Web Bluetooth not supported. Use Chrome or Edge on desktop (not Firefox/Safari).';
+        return;
+      }
+
+      setOverlayButtonsDisabled(true);
+      status.className = 'connecting';
+      status.innerHTML = 'Searching for DXTR-Controller...';
+
+      try {
+        var success = await connectESP32BLE();
+        if (success) {
+          status.className = 'connected';
+          status.innerHTML = 'Connected via Bluetooth! Starting game...';
+          setTimeout(launchGame, 600);
+        } else {
+          status.className = 'error';
+          status.innerHTML = 'Bluetooth connection failed. Please try again.';
+          setOverlayButtonsDisabled(false);
+        }
+      } catch (err) {
+        status.className = 'error';
+        status.innerHTML = 'Bluetooth error: ' + err.message;
+        setOverlayButtonsDisabled(false);
+      }
+    }
+
+    function skipConnection() {
+      launchGame();
+    }
+
+    async function fetchGameConfig() {
+      try {
+        var response = await fetch('/api/patients/' + patientId + '/game-config?gameId=' + gameIdForApi);
+        if (response.ok) {
+          var config = await response.json();
+          leftThreshold = config.targetPronation || leftThreshold;
+          rightThreshold = config.targetSupination || rightThreshold;
+          deadZone = config.deadZone || deadZone;
+          // Update the hidden inputs so initThresholdUI picks them up
+          Dom.get('leftThreshold').value = leftThreshold;
+          Dom.get('rightThreshold').value = rightThreshold;
+          Dom.get('deadZone').value = deadZone;
+          updateThresholdDisplays();
+          console.log('Game config loaded: L=' + leftThreshold + '° R=' + rightThreshold + '° DZ=' + deadZone + '°');
+        }
+      } catch (error) {
+        console.error('Error fetching game config:', error);
+      }
+    }
+
+    async function launchGame() {
+      if (gameStarted) return;
+      gameStarted = true;
+
+      // Fetch clinician-set target angles and apply as ESP32 thresholds
+      await fetchGameConfig();
+
+      // Fetch today's progress before showing the game
+      await fetchTodayProgress();
+
+      // Check if all sets are already done
+      if (setsCompletedToday >= setsTarget) {
+        document.getElementById('connection-overlay').innerHTML = 
+          '<h1 style="color:#4CAF50;">🎉 All Done!</h1>' +
+          '<p class="subtitle">You\'ve completed all ' + setsTarget + ' sets for today!</p>' +
+          '<button id="overlay-skip" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>';
+        return;
+      }
+
+      // Hide overlay, show game
+      document.getElementById('connection-overlay').style.display = 'none';
+      document.getElementById('racer').style.display = 'block';
+
+      // Resize canvas to fill window
+      resizeCanvasToWindow();
+
+      // Reset rep results for new set
+      repResults = [];
+    }
+
+    function resizeCanvasToWindow() {
+      // Use a good fixed internal resolution; CSS stretches canvas to fill viewport
+      // The 1280x960 "fine" resolution gives best quality
+      reset({ width: 1280, height: 960 });
+    }
+
+    var fps            = 60;                      // how many 'update' frames per second
+    var step           = 1/fps;                   // how long is each frame (in seconds)
+    var width          = 1024;                    // logical canvas width
+    var height         = 768;                     // logical canvas height
+    var centrifugal    = 0.3;                     // centrifugal force multiplier when going around curves
+    var skySpeed       = 0.001;                   // background sky layer scroll speed when going around curve (or up hill)
+    var hillSpeed      = 0.002;                   // background hill layer scroll speed when going around curve (or up hill)
+    var treeSpeed      = 0.003;                   // background tree layer scroll speed when going around curve (or up hill)
+    var skyOffset      = 0;                       // current sky scroll offset
+    var hillOffset     = 0;                       // current hill scroll offset
+    var treeOffset     = 0;                       // current tree scroll offset
+    var segments       = [];                      // array of road segments
+    var cars           = [];                      // array of cars on the road
+    var stats          = Game.stats('fps');       // mr.doobs FPS counter
+    var canvas         = Dom.get('canvas');       // our canvas...
+    var ctx            = canvas.getContext('2d'); // ...and its drawing context
+    var background     = null;                    // our background image (loaded below)
+    var sprites        = null;                    // our spritesheet (loaded below)
+    var resolution     = null;                    // scaling factor to provide resolution independence (computed)
+    var roadWidth      = 2000;                    // actually half the roads width, easier math if the road spans from -roadWidth to +roadWidth
+    var segmentLength  = 200;                     // length of a single segment
+    var rumbleLength   = 3;                       // number of segments per red/white rumble strip
+    var trackLength    = null;                    // z length of entire track (computed)
+    var lanes          = 2;                       // number of lanes
+    var fieldOfView    = 100;                     // angle (degrees) for field of view
+    var cameraHeight   = 1000;                    // z height of camera
+    var cameraDepth    = null;                    // z distance camera is from screen (computed)
+    var drawDistance   = 300;                     // number of segments to draw
+    var playerX        = -0.5;                    // player x offset - start in left lane for therapy mode
+    var playerZ        = null;                    // player relative z distance from camera (computed)
+    var fogDensity     = 5;                       // exponential fog density
+    var position       = 0;                       // current camera Z position (add playerZ to get player's absolute Z position)
+    var speed          = 0;                       // current speed
+    var maxSpeed       = segmentLength/step;      // top speed (ensure we can't move more than 1 segment in a single frame to make collision detection easier)
+
+    //=========================================================================
+    // THERAPY MODE VARIABLES
+    //=========================================================================
+
+    var therapyMode       = true;                 // therapy session active
+    var currentRep        = 1;                    // current repetition (1-10)
+    var totalReps         = 10;                   // total repetitions
+    var therapyState      = 'cruising';           // 'cruising', 'showing_prompt', 'dodging', 'complete'
+    var expectedDirection = 'right';              // 'right' first since player starts in left lane
+    var nextObstacleZ     = null;                 // z position of next therapy obstacle
+    var promptDistance    = 10000;                 // distance at which to show video prompt (gives more reaction time)
+    var dodgeStartTime    = null;                 // when dodge animation started
+    var dodgeDuration     = 1;                  // total dodge duration in seconds
+    var dodgeDirection    = null;                 // direction of current dodge
+    var dodgeStartX       = 0;                    // player X position when dodge started
+    var autoSpeed         = null;                 // constant automatic speed (set after maxSpeed is computed)
+    var gameTime          = 0;                    // total elapsed game time
+    var therapyObstacle   = null;                 // reference to current therapy obstacle
+    var obstaclePhase     = 'approaching';        // 'approaching', 'passing', 'blocking'
+    var crashTime         = null;
+    var crashTimeoutId    = null;
+    var warmupDurationMs  = 4000;                  // open-road warm-up before first obstacle (ms)
+
+    //=========================================================================
+    // DAILY PROGRESS TRACKING
+    //=========================================================================
+
+    // Read patient ID from URL params (e.g., ?patientId=edwin-001)
+    var urlParams         = new URLSearchParams(window.location.search);
+    var patientId         = urlParams.get('patientId') || 'edwin-001';
+    var gameIdForApi      = 'car-racer';
+
+    // Per-rep tracking for current set
+    var repResults        = [];                   // array of { repNumber, expectedDirection, actualDirection, achievedAngle, success, reactionTimeMs }
+    var promptShownTime   = null;                 // timestamp when prompt was shown (for reaction time)
+    var currentSetNumber  = 0;                    // which set we're on today (fetched from API)
+    var setsCompletedToday = 0;                   // how many sets done today
+    var setsTarget        = 5;                    // daily target
+
+    //=========================================================================
+    // ESP32 CONNECTION VARIABLES
+    //=========================================================================
+
+    var connectionType    = null;                 // 'serial' | 'ble' | null
+    var esp32Connected    = false;                // Connection status (either transport)
+
+    // --- Web Serial state ---
+    var esp32Port         = null;                 // Web Serial port object
+    var esp32Reader       = null;                 // Serial reader
+    var esp32Buffer       = '';                   // Buffer for incoming serial data
+
+    // --- BLE state ---
+    var BLE_SERVICE_UUID        = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+    var BLE_CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+    var bleDevice         = null;                 // BluetoothDevice
+    var bleCharacteristic = null;                 // BluetoothRemoteGATTCharacteristic
+
+    // Threshold configuration (degrees)
+    var leftThreshold     = Util.toInt(Dom.storage.leftThreshold, 15);
+    var rightThreshold    = Util.toInt(Dom.storage.rightThreshold, 15);
+    var deadZone          = Util.toInt(Dom.storage.deadZone, 5);
+
+    // Current sensor values
+    var currentRoll       = 0;
+    var smoothedRoll      = 0;
+    var smoothingFactor   = 0.3;
+
+    // ESP32 control state
+    var esp32ControlActive = false;
+    var lastEsp32Direction = null;
+
+    //=========================================================================
+    // ESP32 WEB SERIAL API FUNCTIONS
+    //=========================================================================
+
+    async function connectESP32() {
+      if (!('serial' in navigator)) {
+        alert('Web Serial API not supported. Please use Chrome or Edge browser.');
+        return false;
+      }
+
+      try {
+        updateESP32Status('connecting', 'Connecting...');
+        
+        esp32Port = await navigator.serial.requestPort();
+        await esp32Port.open({ baudRate: 115200 });
+        
+        connectionType = 'serial';
+        esp32Connected = true;
+        updateESP32Status('connected', 'USB Connected');
+        updateConnectButton(true);
+        
+        readESP32Data();
+        
+        return true;
+      } catch (error) {
+        console.error('ESP32 connection error:', error);
+        updateESP32Status('disconnected', 'Connection failed');
+        esp32Connected = false;
+        return false;
+      }
+    }
+
+    async function disconnectESP32() {
+      try {
+        esp32Connected = false;
+
+        if (connectionType === 'serial') {
+          if (esp32Reader) { await esp32Reader.cancel(); esp32Reader = null; }
+          if (esp32Port)   { await esp32Port.close();    esp32Port   = null; }
+        } else if (connectionType === 'ble') {
+          if (bleCharacteristic) {
+            try { await bleCharacteristic.stopNotifications(); } catch(e) {}
+            bleCharacteristic = null;
+          }
+          if (bleDevice && bleDevice.gatt.connected) {
+            bleDevice.gatt.disconnect();
+          }
+          bleDevice = null;
+        }
+
+        connectionType = null;
+        updateESP32Status('disconnected', 'Disconnected');
+        updateConnectButton(false);
+        updateRollDisplay(0);
+      } catch (error) {
+        console.error('ESP32 disconnect error:', error);
+      }
+    }
+
+    async function toggleESP32Connection() {
+      if (esp32Connected) {
+        await disconnectESP32();
+      } else {
+        await connectESP32();
+      }
+    }
+
+    //=========================================================================
+    // ESP32 WEB BLUETOOTH (BLE) FUNCTIONS
+    //=========================================================================
+
+    async function connectESP32BLE() {
+      if (!('bluetooth' in navigator)) {
+        alert('Web Bluetooth API not supported. Please use Chrome or Edge.');
+        return false;
+      }
+
+      try {
+        updateESP32Status('connecting', 'Scanning for BLE devices...');
+
+        bleDevice = await navigator.bluetooth.requestDevice({
+          filters: [{ namePrefix: 'DXTR' }],
+          optionalServices: [BLE_SERVICE_UUID]
+        });
+
+        bleDevice.addEventListener('gattserverdisconnected', onBLEDisconnected);
+
+        updateESP32Status('connecting', 'Connecting to GATT server...');
+        var server = await bleDevice.gatt.connect();
+
+        var service = await server.getPrimaryService(BLE_SERVICE_UUID);
+        bleCharacteristic = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
+
+        await bleCharacteristic.startNotifications();
+        bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
+
+        connectionType = 'ble';
+        esp32Connected = true;
+        updateESP32Status('connected', 'BLE Connected');
+        updateConnectButton(true);
+
+        return true;
+      } catch (error) {
+        console.error('BLE connection error:', error);
+        updateESP32Status('disconnected', 'BLE connection failed');
+        esp32Connected = false;
+        bleDevice = null;
+        bleCharacteristic = null;
+        return false;
+      }
+    }
+
+    function onBLEData(event) {
+      var value = event.target.value; // DataView
+      var text = new TextDecoder().decode(value);
+      if (text && text.length > 0) {
+        parseESP32Data(text.trim());
+      }
+    }
+
+    function onBLEDisconnected() {
+      console.log('BLE device disconnected');
+      esp32Connected = false;
+      connectionType = null;
+      bleCharacteristic = null;
+      updateESP32Status('disconnected', 'BLE Disconnected');
+      updateConnectButton(false);
+      updateRollDisplay(0);
+    }
+
+    async function readESP32Data() {
+      if (!esp32Port || !esp32Port.readable) return;
+
+      const textDecoder = new TextDecoderStream();
+      const readableStreamClosed = esp32Port.readable.pipeTo(textDecoder.writable);
+      esp32Reader = textDecoder.readable.getReader();
+
+      try {
+        while (esp32Connected) {
+          const { value, done } = await esp32Reader.read();
+          if (done) break;
+          
+          if (value) {
+            esp32Buffer += value;
+            processESP32Buffer();
+          }
+        }
+      } catch (error) {
+        if (esp32Connected) {
+          console.error('ESP32 read error:', error);
+          await disconnectESP32();
+        }
+      }
+    }
+
+    function processESP32Buffer() {
+      // Process complete lines (newline-delimited JSON)
+      var lines = esp32Buffer.split('\n');
+      
+      // Keep incomplete line in buffer
+      esp32Buffer = lines.pop();
+      
+      // Process complete lines
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (line.length > 0) {
+          parseESP32Data(line);
+        }
+      }
+    }
+
+    function parseESP32Data(jsonString) {
+      try {
+        var data = JSON.parse(jsonString);
+        
+        if (typeof data.roll === 'number') {
+          currentRoll = data.roll;
+          
+          // Apply exponential moving average smoothing
+          smoothedRoll = smoothedRoll * (1 - smoothingFactor) + currentRoll * smoothingFactor;
+          
+          // Update displays
+          updateRollDisplay(smoothedRoll);
+          
+          // Check thresholds and trigger controls
+          checkRollThresholds(smoothedRoll);
+        }
+      } catch (error) {
+        // Ignore invalid JSON lines (common during startup)
+      }
+    }
+
+    //=========================================================================
+    // THRESHOLD CHECKING AND CONTROL INTEGRATION
+    //=========================================================================
+
+    function checkRollThresholds(roll) {
+      // Only trigger controls when showing prompt and waiting for input
+      if (therapyState !== 'showing_prompt') {
+        lastEsp32Direction = null;
+        return;
+      }
+
+      var direction = null;
+
+      // Check if roll exceeds thresholds (outside dead zone)
+      if (roll > leftThreshold) {
+        direction = 'left';
+      } else if (roll < -rightThreshold) {
+        direction = 'right';
+      } else if (Math.abs(roll) < deadZone) {
+        // In dead zone - reset last direction
+        lastEsp32Direction = null;
+        return;
+      }
+
+      // Trigger control if direction matches expected and hasn't been triggered yet
+      if (direction && direction !== lastEsp32Direction) {
+        lastEsp32Direction = direction;
+        
+        if (direction === expectedDirection) {
+          // Correct direction - trigger dodge
+          startDodge(direction);
+        }
+      }
+    }
+
+    //=========================================================================
+    // ESP32 UI UPDATE FUNCTIONS
+    //=========================================================================
+
+    function updateESP32Status(state, text) {
+      var statusEl = Dom.get('esp32-status');
+      var gameStatusEl = Dom.get('esp32-game-status');
+      
+      if (statusEl) {
+        statusEl.className = state;
+        statusEl.innerHTML = text;
+      }
+      
+      if (state === 'connected') {
+        if (gameStatusEl) {
+          gameStatusEl.style.display = 'block';
+          gameStatusEl.className = '';
+        }
+      } else if (state === 'disconnected') {
+        if (gameStatusEl) {
+          gameStatusEl.className = 'disconnected';
+          Dom.get('esp32-game-roll').innerHTML = '--';
+        }
+      }
+    }
+
+    function updateConnectButton(connected) {
+      var btn = Dom.get('esp32-connect-btn');
+      if (connected) {
+        btn.innerHTML = 'Disconnect ESP32';
+        btn.className = 'connected';
+      } else {
+        btn.innerHTML = 'Connect ESP32';
+        btn.className = '';
+      }
+    }
+
+    function updateRollDisplay(roll) {
+      // Update panel display
+      Dom.get('roll-value').innerHTML = roll.toFixed(1);
+      
+      // Update roll indicator marker position (map -45 to +45 degrees to 0-100%)
+      var markerPos = 50 + (roll / 45) * 50;
+      markerPos = Math.max(0, Math.min(100, markerPos));
+      Dom.get('roll-marker').style.left = markerPos + '%';
+      
+      // Update in-game display
+      if (esp32Connected) {
+        var dirIndicator = '';
+        if (roll > leftThreshold) {
+          dirIndicator = ' [LEFT]';
+        } else if (roll < -rightThreshold) {
+          dirIndicator = ' [RIGHT]';
+        }
+        Dom.get('esp32-game-roll').innerHTML = roll.toFixed(1) + '&deg;' + dirIndicator;
+      }
+    }
+
+    //=========================================================================
+    // THRESHOLD UI HANDLERS
+    //=========================================================================
+
+    function initThresholdUI() {
+      // Load saved values
+      Dom.get('leftThreshold').value = leftThreshold;
+      Dom.get('rightThreshold').value = rightThreshold;
+      Dom.get('deadZone').value = deadZone;
+      
+      updateThresholdDisplays();
+      
+      // Add event listeners
+      Dom.on('leftThreshold', 'input', function(ev) {
+        leftThreshold = Util.toInt(ev.target.value, 15);
+        Dom.storage.leftThreshold = leftThreshold;
+        updateThresholdDisplays();
+      });
+      
+      Dom.on('rightThreshold', 'input', function(ev) {
+        rightThreshold = Util.toInt(ev.target.value, 15);
+        Dom.storage.rightThreshold = rightThreshold;
+        updateThresholdDisplays();
+      });
+      
+      Dom.on('deadZone', 'input', function(ev) {
+        deadZone = Util.toInt(ev.target.value, 5);
+        Dom.storage.deadZone = deadZone;
+        updateThresholdDisplays();
+      });
+    }
+
+    function updateThresholdDisplays() {
+      Dom.get('currentLeftThreshold').innerHTML = leftThreshold;
+      Dom.get('currentRightThreshold').innerHTML = '-' + rightThreshold;
+      Dom.get('currentDeadZone').innerHTML = deadZone;
+    }
+
+    //=========================================================================
+    // THERAPY FUNCTIONS
+    //=========================================================================
+
+    function showTherapyVideo(direction) {
+      var video = Dom.get('therapy-video');
+      var source = Dom.get('video-source');
+      
+      if (direction === 'left') {
+        source.src = 'supination_hand_gif.mp4';
+      } else {
+        source.src = 'pronation_hand_gif.mp4';
+      }
+      
+      video.load();
+      video.play();
+      video.style.display = 'block';
+
+      // Record when prompt was shown (for reaction time tracking)
+      promptShownTime = Date.now();
+
+      // Show direction indicator
+      var indicator = Dom.get('direction-indicator');
+      Dom.get('direction-text').innerHTML = direction.toUpperCase();
+      indicator.style.display = 'block';
+      indicator.style.backgroundColor = (direction === 'left') ? 'rgba(0, 150, 255, 0.9)' : 'rgba(255, 100, 0, 0.9)';
+    }
+
+    function hideTherapyVideo() {
+      var video = Dom.get('therapy-video');
+      video.pause();
+      video.style.display = 'none';
+      Dom.get('direction-indicator').style.display = 'none';
+    }
+
+    function startDodge(direction) {
+      // Record rep result BEFORE transitioning state
+      var reactionMs = promptShownTime ? (Date.now() - promptShownTime) : null;
+      var isCorrect = (direction === expectedDirection);
+      
+      repResults.push({
+        repNumber: currentRep,
+        expectedDirection: expectedDirection,
+        actualDirection: direction,
+        achievedAngle: Math.round(smoothedRoll * 10) / 10,  // roll angle at dodge time
+        success: isCorrect,
+        reactionTimeMs: reactionMs
+      });
+
+      promptShownTime = null;
+
+      hideTherapyVideo();
+      therapyState = 'dodging';
+      dodgeStartTime = gameTime;
+      dodgeDirection = direction;
+      dodgeStartX = playerX; // Remember where we started from
+    }
+
+    function completedRep() {
+      currentRep++;
+      updateRepCounter();
+      obstaclePhase = 'approaching';
+      
+      if (currentRep > totalReps) {
+        therapyState = 'complete';
+        showSessionComplete();
+      } else {
+        therapyState = 'cruising';
+        expectedDirection = (currentRep % 2 === 1) ? 'right' : 'left';
+        spawnNextTherapyObstacle();
+      }
+    }
+
+    function triggerCrash() {
+      // Record the failed rep
+      var reactionMs = promptShownTime ? (Date.now() - promptShownTime) : null;
+      repResults.push({
+        repNumber: currentRep,
+        expectedDirection: expectedDirection,
+        actualDirection: null,
+        achievedAngle: 0,
+        success: false,
+        reactionTimeMs: reactionMs
+      });
+      promptShownTime = null;
+
+      hideTherapyVideo();
+      therapyState = 'crashed';
+      crashTime = gameTime;
+      speed = 0;
+
+      // Freeze the obstacle car in place
+      if (therapyObstacle) {
+        therapyObstacle.speed = 0;
+      }
+
+      // Show crash overlay with explosion
+      var overlay = document.getElementById('crash-overlay');
+      var explosion = document.getElementById('crash-explosion');
+      var grey = document.getElementById('crash-grey');
+      var card = document.getElementById('crash-prompt-card');
+
+      explosion.classList.remove('fade-out');
+      grey.classList.remove('visible');
+      card.classList.remove('visible');
+
+      // Force GIF restart by resetting src
+      explosion.src = '';
+      explosion.src = 'images/explosion.gif';
+
+      overlay.style.display = 'flex';
+
+      // After 1.5s: fade explosion, show grey + retry card
+      crashTimeoutId = setTimeout(function() {
+        explosion.classList.add('fade-out');
+        grey.classList.add('visible');
+        card.classList.add('visible');
+      }, 1500);
+    }
+
+    function retryAfterCrash() {
+      // Clear any pending timeout
+      if (crashTimeoutId) {
+        clearTimeout(crashTimeoutId);
+        crashTimeoutId = null;
+      }
+
+      // Hide crash overlay
+      var overlay = document.getElementById('crash-overlay');
+      overlay.style.display = 'none';
+
+      // Remove old therapy obstacle
+      if (therapyObstacle) {
+        var oldSegment = findSegment(therapyObstacle.z);
+        var idx = oldSegment.cars.indexOf(therapyObstacle);
+        if (idx > -1) oldSegment.cars.splice(idx, 1);
+        var carIdx = cars.indexOf(therapyObstacle);
+        if (carIdx > -1) cars.splice(carIdx, 1);
+        therapyObstacle = null;
+      }
+
+      // Resume game at same rep with a brief open-road pause
+      speed = autoSpeed;
+      therapyState = 'cruising';
+      obstaclePhase = 'approaching';
+      setTimeout(function() {
+        spawnNextTherapyObstacle();
+      }, 1500);
+    }
+
+    function updateRepCounter() {
+      var displayRep = Math.min(currentRep, totalReps);
+      Dom.set('rep-counter', displayRep + ' / ' + totalReps);
+    }
+
+    function showDifficultyToast(action, message) {
+      var toast = document.getElementById('difficulty-toast');
+      if (!toast) return;
+      
+      // Set class based on action
+      toast.className = '';
+      if (action === 'increased') toast.className = 'level-up';
+      else if (action === 'decreased') toast.className = 'level-down';
+      else if (action === 'calibrating') toast.className = 'calibrating';
+      else toast.className = 'maintained';
+      
+      var icon = action === 'increased' ? '⬆️ ' : action === 'decreased' ? '⬇️ ' : action === 'calibrating' ? '📊 ' : '➡️ ';
+      toast.innerHTML = icon + message;
+      
+      // Show
+      setTimeout(function() { toast.classList.add('show'); }, 50);
+      // Hide after 4s
+      setTimeout(function() { toast.classList.remove('show'); }, 4000);
+    }
+
+    function showSessionComplete() {
+      speed = 0;
+      
+      // POST set results to API
+      submitSetResults().then(function(response) {
+        if (response && response.ok) {
+          setsCompletedToday = response.setsCompletedToday;
+          setsTarget = response.setsTarget;
+          currentSetNumber = response.setNumber;
+          
+          // Show difficulty adjustment toast
+          if (response.difficultyAdjustment) {
+            showDifficultyToast(response.difficultyAdjustment.action, response.difficultyAdjustment.message);
+          }
+          
+          // Update session complete screen with set info
+          var completeEl = Dom.get('session-complete');
+          var successCount = repResults.filter(function(r) { return r.success; }).length;
+          
+          var html = '<div id="session-complete-card">';
+          html += '<h1>Set ' + response.setNumber + ' Complete!</h1>';
+          html += '<p>' + successCount + '/' + totalReps + ' reps successful</p>';
+          html += '<p style="font-size:1.1em;color:#5BB5CF;">Today: ' + response.setsCompletedToday + ' / ' + response.setsTarget + ' sets</p>';
+          
+          // Show difficulty feedback text
+          if (response.difficultyAdjustment && response.difficultyAdjustment.message) {
+            var adjColor = response.difficultyAdjustment.action === 'increased' ? '#7BC47F' 
+              : response.difficultyAdjustment.action === 'decreased' ? '#E8734A' 
+              : '#5BB5CF';
+            html += '<p style="font-size:1em;color:' + adjColor + ';margin-top:5px;margin-bottom:5px;">' + response.difficultyAdjustment.message + '</p>';
+          }
+          
+          if (response.allSetsComplete) {
+            html += '<p style="font-size:1.3em;color:#7BC47F;margin-top:10px;">&#127881; All daily sets complete! Great work!</p>';
+            html += '<button onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>';
+          } else {
+            html += '<button onclick="startNextSet()" style="margin-right:12px;">Start Next Set (' + (response.setsCompletedToday + 1) + '/' + response.setsTarget + ')</button>';
+            html += '<button onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>';
+          }
+          
+          html += '</div>';
+          completeEl.innerHTML = html;
+          completeEl.style.display = 'flex';
+        } else {
+          // Fallback if API fails
+          Dom.get('session-complete').style.display = 'flex';
+        }
+      }).catch(function() {
+        // Fallback
+        Dom.get('session-complete').style.display = 'flex';
+      });
+    }
+
+    async function startNextSet() {
+      // Re-fetch game config in case difficulty was adjusted
+      await fetchGameConfig();
+      
+      // Reset therapy state for next set
+      Dom.get('session-complete').style.display = 'none';
+      document.getElementById('crash-overlay').style.display = 'none';
+      repResults = [];
+      currentRep = 1;
+      therapyState = 'cruising';
+      expectedDirection = 'right';
+      playerX = -0.5;
+      crashTime = null;
+      updateRepCounter();
+      updateSetCounter();
+      
+      // Reset road and spawn first obstacle (shorter delay between sets)
+      resetCars(1500);
+      speed = autoSpeed;
+    }
+
+    async function submitSetResults() {
+      try {
+        var response = await fetch('/api/daily-progress/complete-set', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            patientId: patientId,
+            gameId: gameIdForApi,
+            reps: repResults
+          })
+        });
+        
+        if (response.ok) {
+          return await response.json();
+        } else {
+          console.error('Failed to submit set results:', response.status);
+          return null;
+        }
+      } catch (error) {
+        console.error('Error submitting set results:', error);
+        return null;
+      }
+    }
+
+    async function fetchTodayProgress() {
+      try {
+        var response = await fetch('/api/daily-progress/' + patientId + '/today?gameId=' + gameIdForApi);
+        if (response.ok) {
+          var data = await response.json();
+          setsCompletedToday = data.setsCompleted || 0;
+          setsTarget = data.setsTarget || 5;
+          currentSetNumber = setsCompletedToday;
+          updateSetCounter();
+        }
+      } catch (error) {
+        console.error('Error fetching daily progress:', error);
+      }
+    }
+
+    function updateSetCounter() {
+      var el = Dom.get('set-counter');
+      if (el) {
+        el.innerHTML = 'Set ' + (setsCompletedToday + 1) + ' / ' + setsTarget;
+      }
+    }
+
+    function spawnNextTherapyObstacle() {
+      // Remove old therapy obstacle if exists
+      if (therapyObstacle) {
+        var oldSegment = findSegment(therapyObstacle.z);
+        var idx = oldSegment.cars.indexOf(therapyObstacle);
+        if (idx > -1) oldSegment.cars.splice(idx, 1);
+        var carIdx = cars.indexOf(therapyObstacle);
+        if (carIdx > -1) cars.splice(carIdx, 1);
+      }
+
+      // Position obstacle in OPPOSITE lane from where player currently is
+      // If player is in left lane (negative playerX), spawn obstacle in right lane
+      // If player is in right lane (positive playerX), spawn obstacle in left lane
+      var startOffset;
+      if (playerX < 0) {
+        startOffset = 0.5; // player in left lane, obstacle starts in right lane
+      } else {
+        startOffset = -0.5; // player in right lane, obstacle starts in left lane
+      }
+      
+      // Target is the player's current lane (obstacle will swerve into it)
+      var targetOffset = playerX;
+      
+      // Obstacle spawns BEHIND the player and drives up to catch them
+      var z = position - 4000; // spawn 4000 units BEHIND the player
+      if (z < 0) z += trackLength; // handle track wrapping
+      
+      var sprite = Util.randomChoice([SPRITES.CAR01, SPRITES.CAR02, SPRITES.CAR03, SPRITES.CAR04, SPRITES.TRUCK]);
+      var obstacleSpeed = autoSpeed * 2.0; // obstacle moves FASTER than player to catch up
+      
+      therapyObstacle = { 
+        offset: startOffset, 
+        startOffset: startOffset,  // initial lane position
+        targetOffset: targetOffset,  // lane to swerve into
+        z: z, 
+        sprite: sprite, 
+        speed: obstacleSpeed, 
+        isTherapyObstacle: true, 
+        phase: 'approaching' 
+      };
+      var segment = findSegment(therapyObstacle.z);
+      segment.cars.push(therapyObstacle);
+      cars.push(therapyObstacle);
+      
+      obstaclePhase = 'approaching';
+    }
+
+    //=========================================================================
+    // UPDATE THE GAME WORLD
+    //=========================================================================
+
+    function update(dt) {
+
+      var n, car, carW, sprite, spriteW;
+      var playerSegment = findSegment(position+playerZ);
+      var playerW       = SPRITES.PLAYER_STRAIGHT.w * SPRITES.SCALE;
+      var startPosition = position;
+
+      // Update game time
+      gameTime += dt;
+
+      // Set constant auto speed for therapy mode
+      if (autoSpeed === null) {
+        autoSpeed = maxSpeed * 0.3;
+      }
+
+      // Therapy mode: constant speed and auto-driving
+      if (therapyState !== 'complete' && therapyState !== 'crashed') {
+        speed = autoSpeed;
+      }
+
+      updateCars(dt, playerSegment, playerW);
+
+      position = Util.increase(position, dt * speed, trackLength);
+
+      //=========================================================================
+      // THERAPY LOGIC
+      //=========================================================================
+
+      if (therapyState === 'cruising' || therapyState === 'showing_prompt') {
+        // Keep player in current lane (don't auto-center anymore)
+        // Player stays where they are after dodging
+        
+        // Update obstacle phase and behavior
+        if (therapyObstacle) {
+          var playerPos = position + playerZ;
+          var obstaclePos = therapyObstacle.z;
+          
+          // Calculate relative distance (positive = obstacle is ahead, negative = behind)
+          var relativeDistance = obstaclePos - playerPos;
+          
+          // Handle track wrapping
+          if (relativeDistance > trackLength / 2) {
+            relativeDistance -= trackLength;
+          } else if (relativeDistance < -trackLength / 2) {
+            relativeDistance += trackLength;
+          }
+          
+          // Phase transitions based on obstacle position relative to player
+          if (obstaclePhase === 'approaching') {
+            // Obstacle is behind, moving fast to catch up
+            therapyObstacle.speed = autoSpeed * 2.0;
+            
+            // Gradually swerve toward player's lane based on distance
+            // When relativeDistance is -4000 (spawned), progress = 0
+            // When relativeDistance is -500 (near player), progress = 1
+            var swerveProgress = Math.max(0, Math.min(1.0, (-relativeDistance - 500) / 3500));
+            therapyObstacle.offset = Util.easeInOut(therapyObstacle.startOffset, therapyObstacle.targetOffset, swerveProgress);
+            
+            // Transition to passing when obstacle reaches player
+            if (relativeDistance >= -500) {
+              obstaclePhase = 'passing';
+            }
+          }
+          else if (obstaclePhase === 'passing') {
+            // Obstacle is passing the player
+            therapyObstacle.speed = autoSpeed * 2;
+            
+            // Continue swerving into player's lane
+            // Calculate overall progress from spawn (-4000) to well ahead (2000)
+            // Total distance = 6000, so progress = (relativeDistance + 4000) / 6000
+            var totalProgress = Math.max(0, Math.min(1.0, (relativeDistance + 4000) / 6000));
+            therapyObstacle.offset = Util.easeInOut(therapyObstacle.startOffset, therapyObstacle.targetOffset, totalProgress);
+            
+            // Transition to blocking when obstacle is well ahead
+            if (relativeDistance >= 10000) {
+              obstaclePhase = 'blocking';
+              therapyObstacle.speed = autoSpeed * 0.15; // Slow down significantly
+              therapyObstacle.offset = therapyObstacle.targetOffset; // Ensure it's in the player's lane
+            }
+          }
+          else if (obstaclePhase === 'blocking') {
+            // Obstacle is ahead and slowing down - player needs to dodge
+            therapyObstacle.speed = autoSpeed * 0.15; // Very slow (nearly stopped)
+            
+            // Obstacle stays in the lane it swerved into (player's original lane)
+            therapyObstacle.offset = therapyObstacle.targetOffset;
+            
+            // Show prompt when player is approaching the blocked obstacle
+            if (therapyState === 'cruising' && relativeDistance <= promptDistance && relativeDistance > 800) {
+              therapyState = 'showing_prompt';
+              showTherapyVideo(expectedDirection);
+            }
+
+            // Collision detection: crash if player reaches obstacle without dodging
+            if (therapyState === 'showing_prompt' && relativeDistance <= 300 && relativeDistance > -500) {
+              var playerW = SPRITES.PLAYER_STRAIGHT.w * SPRITES.SCALE;
+              var obstacleW = therapyObstacle.sprite.w * SPRITES.SCALE;
+              if (Util.overlap(playerX, playerW, therapyObstacle.offset, obstacleW, 0.8)) {
+                triggerCrash();
+              }
+            }
+          }
+        }
+      }
+      else if (therapyState === 'crashed') {
+        speed = 0;
+      }
+      else if (therapyState === 'dodging') {
+        var elapsed = gameTime - dodgeStartTime;
+        var progress = elapsed / dodgeDuration;
+        var targetX = (dodgeDirection === 'left') ? -0.5 : 0.5; // Target lane position
+        
+        if (progress <= 1.0) {
+          // Smooth swerve to target lane from current position
+          playerX = Util.easeInOut(dodgeStartX, targetX, progress);
+        }
+        else {
+          // Dodge complete - stay in the new lane
+          playerX = targetX;
+          completedRep();
+        }
+      }
+
+      // Apply centrifugal force (reduced in therapy mode)
+      var speedPercent = speed / maxSpeed;
+      playerX = playerX - (dt * 2 * speedPercent * speedPercent * playerSegment.curve * centrifugal * 0.3);
+
+      playerX = Util.limit(playerX, -2, 2);     // dont ever let it go too far out of bounds
+      speed   = Util.limit(speed, 0, maxSpeed); // or exceed maxSpeed
+
+      skyOffset  = Util.increase(skyOffset,  skySpeed  * playerSegment.curve * (position-startPosition)/segmentLength, 1);
+      hillOffset = Util.increase(hillOffset, hillSpeed * playerSegment.curve * (position-startPosition)/segmentLength, 1);
+      treeOffset = Util.increase(treeOffset, treeSpeed * playerSegment.curve * (position-startPosition)/segmentLength, 1);
+    }
+
+    //-------------------------------------------------------------------------
+
+    function updateCars(dt, playerSegment, playerW) {
+      var n, car, oldSegment, newSegment;
+      for(n = 0 ; n < cars.length ; n++) {
+        car         = cars[n];
+        oldSegment  = findSegment(car.z);
+        // Therapy obstacles don't steer
+        if (!car.isTherapyObstacle) {
+          car.offset  = car.offset + updateCarOffset(car, oldSegment, playerSegment, playerW);
+        }
+        car.z       = Util.increase(car.z, dt * car.speed, trackLength);
+        car.percent = Util.percentRemaining(car.z, segmentLength);
+        newSegment  = findSegment(car.z);
+        if (oldSegment != newSegment) {
+          var index = oldSegment.cars.indexOf(car);
+          oldSegment.cars.splice(index, 1);
+          newSegment.cars.push(car);
+        }
+      }
+    }
+
+    function updateCarOffset(car, carSegment, playerSegment, playerW) {
+
+      var i, j, dir, segment, otherCar, otherCarW, lookahead = 20, carW = car.sprite.w * SPRITES.SCALE;
+
+      // optimization, dont bother steering around other cars when 'out of sight' of the player
+      if ((carSegment.index - playerSegment.index) > drawDistance)
+        return 0;
+
+      for(i = 1 ; i < lookahead ; i++) {
+        segment = segments[(carSegment.index+i)%segments.length];
+
+        if ((segment === playerSegment) && (car.speed > speed) && (Util.overlap(playerX, playerW, car.offset, carW, 1.2))) {
+          if (playerX > 0.5)
+            dir = -1;
+          else if (playerX < -0.5)
+            dir = 1;
+          else
+            dir = (car.offset > playerX) ? 1 : -1;
+          return dir * 1/i * (car.speed-speed)/maxSpeed;
+        }
+
+        for(j = 0 ; j < segment.cars.length ; j++) {
+          otherCar  = segment.cars[j];
+          otherCarW = otherCar.sprite.w * SPRITES.SCALE;
+          if ((car.speed > otherCar.speed) && Util.overlap(car.offset, carW, otherCar.offset, otherCarW, 1.2)) {
+            if (otherCar.offset > 0.5)
+              dir = -1;
+            else if (otherCar.offset < -0.5)
+              dir = 1;
+            else
+              dir = (car.offset > otherCar.offset) ? 1 : -1;
+            return dir * 1/i * (car.speed-otherCar.speed)/maxSpeed;
+          }
+        }
+      }
+
+      if (car.offset < -0.9)
+        return 0.1;
+      else if (car.offset > 0.9)
+        return -0.1;
+      else
+        return 0;
+    }
+
+    //=========================================================================
+    // RENDER THE GAME WORLD
+    //=========================================================================
+
+    function render() {
+
+      var baseSegment   = findSegment(position);
+      var basePercent   = Util.percentRemaining(position, segmentLength);
+      var playerSegment = findSegment(position+playerZ);
+      var playerPercent = Util.percentRemaining(position+playerZ, segmentLength);
+      var playerY       = Util.interpolate(playerSegment.p1.world.y, playerSegment.p2.world.y, playerPercent);
+      var maxy          = height;
+
+      var x  = 0;
+      var dx = - (baseSegment.curve * basePercent);
+
+      ctx.clearRect(0, 0, width, height);
+
+      Render.background(ctx, background, width, height, BACKGROUND.SKY,   skyOffset,  resolution * skySpeed  * playerY);
+      Render.background(ctx, background, width, height, BACKGROUND.HILLS, hillOffset, resolution * hillSpeed * playerY);
+      Render.background(ctx, background, width, height, BACKGROUND.TREES, treeOffset, resolution * treeSpeed * playerY);
+
+      var n, i, segment, car, sprite, spriteScale, spriteX, spriteY;
+
+      for(n = 0 ; n < drawDistance ; n++) {
+
+        segment        = segments[(baseSegment.index + n) % segments.length];
+        segment.looped = segment.index < baseSegment.index;
+        segment.fog    = Util.exponentialFog(n/drawDistance, fogDensity);
+        segment.clip   = maxy;
+
+        Util.project(segment.p1, (playerX * roadWidth) - x,      playerY + cameraHeight, position - (segment.looped ? trackLength : 0), cameraDepth, width, height, roadWidth);
+        Util.project(segment.p2, (playerX * roadWidth) - x - dx, playerY + cameraHeight, position - (segment.looped ? trackLength : 0), cameraDepth, width, height, roadWidth);
+
+        x  = x + dx;
+        dx = dx + segment.curve;
+
+        if ((segment.p1.camera.z <= cameraDepth)         || // behind us
+            (segment.p2.screen.y >= segment.p1.screen.y) || // back face cull
+            (segment.p2.screen.y >= maxy))                  // clip by (already rendered) hill
+          continue;
+
+        Render.segment(ctx, width, lanes,
+                       segment.p1.screen.x,
+                       segment.p1.screen.y,
+                       segment.p1.screen.w,
+                       segment.p2.screen.x,
+                       segment.p2.screen.y,
+                       segment.p2.screen.w,
+                       segment.fog,
+                       segment.color);
+
+        maxy = segment.p1.screen.y;
+      }
+
+      for(n = (drawDistance-1) ; n > 0 ; n--) {
+        segment = segments[(baseSegment.index + n) % segments.length];
+
+        for(i = 0 ; i < segment.cars.length ; i++) {
+          car         = segment.cars[i];
+          sprite      = car.sprite;
+          spriteScale = Util.interpolate(segment.p1.screen.scale, segment.p2.screen.scale, car.percent);
+          spriteX     = Util.interpolate(segment.p1.screen.x,     segment.p2.screen.x,     car.percent) + (spriteScale * car.offset * roadWidth * width/2);
+          spriteY     = Util.interpolate(segment.p1.screen.y,     segment.p2.screen.y,     car.percent);
+          Render.sprite(ctx, width, height, resolution, roadWidth, sprites, car.sprite, spriteScale, spriteX, spriteY, -0.5, -1, segment.clip);
+        }
+
+        for(i = 0 ; i < segment.sprites.length ; i++) {
+          sprite      = segment.sprites[i];
+          spriteScale = segment.p1.screen.scale;
+          spriteX     = segment.p1.screen.x + (spriteScale * sprite.offset * roadWidth * width/2);
+          spriteY     = segment.p1.screen.y;
+          Render.sprite(ctx, width, height, resolution, roadWidth, sprites, sprite.source, spriteScale, spriteX, spriteY, (sprite.offset < 0 ? -1 : 0), -1, segment.clip);
+        }
+
+        if (segment == playerSegment) {
+          // Determine player steering visual based on dodge state
+          var steerValue = 0;
+          if (therapyState === 'dodging') {
+            steerValue = speed * (dodgeDirection === 'left' ? -1 : 1);
+          }
+          
+          Render.player(ctx, width, height, resolution, roadWidth, sprites, speed/maxSpeed,
+                        cameraDepth/playerZ,
+                        width/2,
+                        (height/2) - (cameraDepth/playerZ * Util.interpolate(playerSegment.p1.camera.y, playerSegment.p2.camera.y, playerPercent) * height/2),
+                        steerValue,
+                        playerSegment.p2.world.y - playerSegment.p1.world.y);
+        }
+      }
+    }
+
+    function findSegment(z) {
+      return segments[Math.floor(z/segmentLength) % segments.length]; 
+    }
+
+    //=========================================================================
+    // BUILD ROAD GEOMETRY
+    //=========================================================================
+
+    function lastY() { return (segments.length == 0) ? 0 : segments[segments.length-1].p2.world.y; }
+
+    function addSegment(curve, y) {
+      var n = segments.length;
+      segments.push({
+          index: n,
+             p1: { world: { y: lastY(), z:  n   *segmentLength }, camera: {}, screen: {} },
+             p2: { world: { y: y,       z: (n+1)*segmentLength }, camera: {}, screen: {} },
+          curve: curve,
+        sprites: [],
+           cars: [],
+          color: Math.floor(n/rumbleLength)%2 ? COLORS.DARK : COLORS.LIGHT
+      });
+    }
+
+    function addSprite(n, sprite, offset) {
+      segments[n].sprites.push({ source: sprite, offset: offset });
+    }
+
+    function addRoad(enter, hold, leave, curve, y) {
+      var startY   = lastY();
+      var endY     = startY + (Util.toInt(y, 0) * segmentLength);
+      var n, total = enter + hold + leave;
+      for(n = 0 ; n < enter ; n++)
+        addSegment(Util.easeIn(0, curve, n/enter), Util.easeInOut(startY, endY, n/total));
+      for(n = 0 ; n < hold  ; n++)
+        addSegment(curve, Util.easeInOut(startY, endY, (enter+n)/total));
+      for(n = 0 ; n < leave ; n++)
+        addSegment(Util.easeInOut(curve, 0, n/leave), Util.easeInOut(startY, endY, (enter+hold+n)/total));
+    }
+
+    var ROAD = {
+      LENGTH: { NONE: 0, SHORT:  25, MEDIUM:   50, LONG:  100 },
+      HILL:   { NONE: 0, LOW:    20, MEDIUM:   40, HIGH:   60 },
+      CURVE:  { NONE: 0, EASY:    2, MEDIUM:    4, HARD:    6 }
+    };
+
+    function addStraight(num) {
+      num = num || ROAD.LENGTH.MEDIUM;
+      addRoad(num, num, num, 0, 0);
+    }
+
+    function addHill(num, height) {
+      num    = num    || ROAD.LENGTH.MEDIUM;
+      height = height || ROAD.HILL.MEDIUM;
+      addRoad(num, num, num, 0, height);
+    }
+
+    function addCurve(num, curve, height) {
+      num    = num    || ROAD.LENGTH.MEDIUM;
+      curve  = curve  || ROAD.CURVE.MEDIUM;
+      height = height || ROAD.HILL.NONE;
+      addRoad(num, num, num, curve, height);
+    }
+        
+    function addLowRollingHills(num, height) {
+      num    = num    || ROAD.LENGTH.SHORT;
+      height = height || ROAD.HILL.LOW;
+      addRoad(num, num, num,  0,                height/2);
+      addRoad(num, num, num,  0,               -height);
+      addRoad(num, num, num,  ROAD.CURVE.EASY,  height);
+      addRoad(num, num, num,  0,                0);
+      addRoad(num, num, num, -ROAD.CURVE.EASY,  height/2);
+      addRoad(num, num, num,  0,                0);
+    }
+
+    function addSCurves() {
+      // Flat S-curves - no hills
+      addRoad(ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM,  -ROAD.CURVE.EASY,    ROAD.HILL.NONE);
+      addRoad(ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM,   ROAD.CURVE.MEDIUM,  ROAD.HILL.NONE);
+      addRoad(ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM,   ROAD.CURVE.EASY,    ROAD.HILL.NONE);
+      addRoad(ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM,  -ROAD.CURVE.EASY,    ROAD.HILL.NONE);
+      addRoad(ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM, ROAD.LENGTH.MEDIUM,  -ROAD.CURVE.MEDIUM,  ROAD.HILL.NONE);
+    }
+
+    function addBumps() {
+      addRoad(10, 10, 10, 0,  5);
+      addRoad(10, 10, 10, 0, -2);
+      addRoad(10, 10, 10, 0, -5);
+      addRoad(10, 10, 10, 0,  8);
+      addRoad(10, 10, 10, 0,  5);
+      addRoad(10, 10, 10, 0, -7);
+      addRoad(10, 10, 10, 0,  5);
+      addRoad(10, 10, 10, 0, -2);
+    }
+
+    function addDownhillToEnd(num) {
+      num = num || 200;
+      addRoad(num, num, num, -ROAD.CURVE.EASY, -lastY()/segmentLength);
+    }
+
+    function resetRoad() {
+      segments = [];
+
+      // Flat road with curves for therapy mode - no hills or bumps
+      addStraight(ROAD.LENGTH.SHORT);
+      addSCurves();
+      addStraight(ROAD.LENGTH.MEDIUM);
+      addCurve(ROAD.LENGTH.MEDIUM, ROAD.CURVE.MEDIUM, ROAD.HILL.NONE);
+      addStraight(ROAD.LENGTH.SHORT);
+      addSCurves();
+      addCurve(ROAD.LENGTH.LONG, ROAD.CURVE.EASY, ROAD.HILL.NONE);
+      addStraight(ROAD.LENGTH.MEDIUM);
+      addCurve(ROAD.LENGTH.MEDIUM, -ROAD.CURVE.MEDIUM, ROAD.HILL.NONE);
+      addSCurves();
+      addStraight(ROAD.LENGTH.LONG);
+      addCurve(ROAD.LENGTH.LONG, ROAD.CURVE.HARD, ROAD.HILL.NONE);
+      addStraight(ROAD.LENGTH.MEDIUM);
+      addSCurves();
+      addCurve(ROAD.LENGTH.MEDIUM, -ROAD.CURVE.EASY, ROAD.HILL.NONE);
+      addStraight(ROAD.LENGTH.LONG);
+
+      resetSprites();
+      resetCars();
+
+      segments[findSegment(playerZ).index + 2].color = COLORS.START;
+      segments[findSegment(playerZ).index + 3].color = COLORS.START;
+      for(var n = 0 ; n < rumbleLength ; n++)
+        segments[segments.length-1-n].color = COLORS.FINISH;
+
+      trackLength = segments.length * segmentLength;
+    }
+
+    function resetSprites() {
+      var n, i;
+
+      addSprite(20,  SPRITES.BILLBOARD07, -1);
+      addSprite(40,  SPRITES.BILLBOARD06, -1);
+      addSprite(60,  SPRITES.BILLBOARD08, -1);
+      addSprite(80,  SPRITES.BILLBOARD09, -1);
+      addSprite(100, SPRITES.BILLBOARD01, -1);
+      addSprite(120, SPRITES.BILLBOARD02, -1);
+      addSprite(140, SPRITES.BILLBOARD03, -1);
+      addSprite(160, SPRITES.BILLBOARD04, -1);
+      addSprite(180, SPRITES.BILLBOARD05, -1);
+
+      addSprite(240,                  SPRITES.BILLBOARD07, -1.2);
+      addSprite(240,                  SPRITES.BILLBOARD06,  1.2);
+      addSprite(segments.length - 25, SPRITES.BILLBOARD07, -1.2);
+      addSprite(segments.length - 25, SPRITES.BILLBOARD06,  1.2);
+
+      for(n = 10 ; n < 200 ; n += 4 + Math.floor(n/100)) {
+        addSprite(n, SPRITES.PALM_TREE, 0.5 + Math.random()*0.5);
+        addSprite(n, SPRITES.PALM_TREE,   1 + Math.random()*2);
+      }
+
+      for(n = 250 ; n < 1000 ; n += 5) {
+        addSprite(n,     SPRITES.COLUMN, 1.1);
+        addSprite(n + Util.randomInt(0,5), SPRITES.TREE1, -1 - (Math.random() * 2));
+        addSprite(n + Util.randomInt(0,5), SPRITES.TREE2, -1 - (Math.random() * 2));
+      }
+
+      for(n = 200 ; n < segments.length ; n += 3) {
+        addSprite(n, Util.randomChoice(SPRITES.PLANTS), Util.randomChoice([1,-1]) * (2 + Math.random() * 5));
+      }
+
+      var side, sprite, offset;
+      for(n = 1000 ; n < (segments.length-50) ; n += 100) {
+        side      = Util.randomChoice([1, -1]);
+        addSprite(n + Util.randomInt(0, 50), Util.randomChoice(SPRITES.BILLBOARDS), -side);
+        for(i = 0 ; i < 20 ; i++) {
+          sprite = Util.randomChoice(SPRITES.PLANTS);
+          offset = side * (1.5 + Math.random());
+          addSprite(n + Util.randomInt(0, 50), sprite, offset);
+        }
+          
+      }
+
+    }
+
+    function resetCars(delayMs) {
+      cars = [];
+      therapyObstacle = null;
+      obstaclePhase = 'approaching';
+      
+      // In therapy mode, only spawn therapy obstacles (no random traffic)
+      if (therapyMode) {
+        // Initialize therapy state
+        currentRep = 1;
+        therapyState = 'cruising';
+        expectedDirection = 'right'; // First rep is right since player starts in left lane
+        updateRepCounter();
+        
+        var spawnDelay = (delayMs !== undefined) ? delayMs : warmupDurationMs;
+        setTimeout(function() {
+          spawnNextTherapyObstacle();
+        }, spawnDelay);
+      }
+    }
+
+    //=========================================================================
+    // THE GAME LOOP
+    //=========================================================================
+
+    Game.run({
+      canvas: canvas, render: render, update: update, stats: stats, step: step,
+      images: ["background", "sprites"],
+      keys: [
+        // Therapy mode: only left/right keys for dodge inputs
+        { 
+          keys: [KEY.LEFT, KEY.A], 
+          mode: 'down', 
+          action: function() { 
+            if (therapyState === 'showing_prompt' && expectedDirection === 'left') {
+              startDodge('left');
+            }
+          } 
+        },
+        { 
+          keys: [KEY.RIGHT, KEY.D], 
+          mode: 'down', 
+          action: function() { 
+            if (therapyState === 'showing_prompt' && expectedDirection === 'right') {
+              startDodge('right');
+            }
+          } 
+        }
+      ],
+      ready: function(images) {
+        background = images[0];
+        sprites    = images[1];
+        reset();
+        initThresholdUI();
+        // Don't start rendering until overlay is dismissed - hide game initially
+        // Game loop starts but #racer is hidden until launchGame() is called
+      }
+    });
+
+    function reset(options) {
+      options       = options || {};
+      canvas.width  = width  = Util.toInt(options.width,          width);
+      canvas.height = height = Util.toInt(options.height,         height);
+      lanes                  = Util.toInt(options.lanes,          lanes);
+      roadWidth              = Util.toInt(options.roadWidth,      roadWidth);
+      cameraHeight           = Util.toInt(options.cameraHeight,   cameraHeight);
+      drawDistance           = Util.toInt(options.drawDistance,   drawDistance);
+      fogDensity             = Util.toInt(options.fogDensity,     fogDensity);
+      fieldOfView            = Util.toInt(options.fieldOfView,    fieldOfView);
+      segmentLength          = Util.toInt(options.segmentLength,  segmentLength);
+      rumbleLength           = Util.toInt(options.rumbleLength,   rumbleLength);
+      cameraDepth            = 1 / Math.tan((fieldOfView/2) * Math.PI/180);
+      playerZ                = (cameraHeight * cameraDepth);
+      resolution             = height/480;
+      refreshTweakUI();
+
+      if ((segments.length==0) || (options.segmentLength) || (options.rumbleLength))
+        resetRoad(); // only rebuild road when necessary
+    }
+
+    //=========================================================================
+    // TWEAK UI HANDLERS
+    //=========================================================================
+
+    Dom.on('resolution', 'change', function(ev) {
+      var w, h, ratio;
+      switch(ev.target.options[ev.target.selectedIndex].value) {
+        case 'fine':   w = 1280; h = 960;  ratio=w/width; break;
+        case 'high':   w = 1024; h = 768;  ratio=w/width; break;
+        case 'medium': w = 640;  h = 480;  ratio=w/width; break;
+        case 'low':    w = 480;  h = 360;  ratio=w/width; break;
+      }
+      reset({ width: w, height: h })
+      Dom.blur(ev);
+    });
+
+    Dom.on('lanes',          'change', function(ev) { Dom.blur(ev); reset({ lanes:         ev.target.options[ev.target.selectedIndex].value }); });
+    Dom.on('roadWidth',      'change', function(ev) { Dom.blur(ev); reset({ roadWidth:     Util.limit(Util.toInt(ev.target.value), Util.toInt(ev.target.getAttribute('min')), Util.toInt(ev.target.getAttribute('max'))) }); });
+    Dom.on('cameraHeight',   'change', function(ev) { Dom.blur(ev); reset({ cameraHeight:  Util.limit(Util.toInt(ev.target.value), Util.toInt(ev.target.getAttribute('min')), Util.toInt(ev.target.getAttribute('max'))) }); });
+    Dom.on('drawDistance',   'change', function(ev) { Dom.blur(ev); reset({ drawDistance:  Util.limit(Util.toInt(ev.target.value), Util.toInt(ev.target.getAttribute('min')), Util.toInt(ev.target.getAttribute('max'))) }); });
+    Dom.on('fieldOfView',    'change', function(ev) { Dom.blur(ev); reset({ fieldOfView:   Util.limit(Util.toInt(ev.target.value), Util.toInt(ev.target.getAttribute('min')), Util.toInt(ev.target.getAttribute('max'))) }); });
+    Dom.on('fogDensity',     'change', function(ev) { Dom.blur(ev); reset({ fogDensity:    Util.limit(Util.toInt(ev.target.value), Util.toInt(ev.target.getAttribute('min')), Util.toInt(ev.target.getAttribute('max'))) }); });
+
+    function refreshTweakUI() {
+      Dom.get('lanes').selectedIndex = lanes-1;
+      Dom.get('currentRoadWidth').innerHTML      = Dom.get('roadWidth').value      = roadWidth;
+      Dom.get('currentCameraHeight').innerHTML   = Dom.get('cameraHeight').value   = cameraHeight;
+      Dom.get('currentDrawDistance').innerHTML   = Dom.get('drawDistance').value   = drawDistance;
+      Dom.get('currentFieldOfView').innerHTML    = Dom.get('fieldOfView').value    = fieldOfView;
+      Dom.get('currentFogDensity').innerHTML     = Dom.get('fogDensity').value     = fogDensity;
+    }
+
+    //=========================================================================
+
+  </script>
+
+</body> 
+</html>
