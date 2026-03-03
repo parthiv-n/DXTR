@@ -22,11 +22,14 @@ import {
 } from "recharts";
 import { Save, Activity, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 type Props = {
   game: ExerciseGame;
   aggregate: GameAggregate;
   dailyBuckets: DayBucket[];
   patientId: string;
+  className?: string;
 };
 
 const repsChartConfig: ChartConfig = {
@@ -41,7 +44,7 @@ const difficultyChartConfig: ChartConfig = {
   successRate: { label: "Success Rate", color: "#82C785" },
 };
 
-export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId }: Props) {
+export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId, className }: Props) {
   const isCarRacer = game.id === "car-racer";
 
   const repsData = dailyBuckets.map((d) => {
@@ -63,7 +66,7 @@ export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId }: 
   }));
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5">
+    <div className={cn("bg-white rounded-2xl border border-gray-200 p-5", className)}>
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <span className="text-3xl">{game.icon}</span>

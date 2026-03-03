@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { GameAggregate, ExerciseGame, AggregatedProgress, DayBucket } from "@/lib/exercise/types";
+import { ExerciseGame, AggregatedProgress } from "@/lib/exercise/types";
 import { GameProgressCard } from "./GameProgressCard";
 import { ExpandedGamePanel } from "./ExpandedGamePanel";
-import { ArrowLeft } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
 
 type Props = {
   games: ExerciseGame[];
@@ -23,7 +23,6 @@ export function GameCardGrid({
   patientId,
   selectedDay,
 }: Props) {
-  const backBtnRef = useRef<HTMLButtonElement>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const expandedGame = expandedGameId ? games.find((g) => g.id === expandedGameId) : null;
@@ -31,15 +30,10 @@ export function GameCardGrid({
     ? progress.perGame.find((g) => g.gameId === expandedGameId)
     : null;
 
-  useEffect(() => {
-    if (expandedGameId && backBtnRef.current) {
-      backBtnRef.current.focus();
-    }
-  }, [expandedGameId]);
-
   const handleClose = useCallback(() => {
     const prevId = expandedGameId;
     onExpandGame(null);
+    // Restore focus to the card that was clicked
     requestAnimationFrame(() => {
       if (prevId && cardRefs.current[prevId]) {
         cardRefs.current[prevId]?.focus();
@@ -47,36 +41,7 @@ export function GameCardGrid({
     });
   }, [expandedGameId, onExpandGame]);
 
-  useEffect(() => {
-    if (!expandedGameId) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") handleClose();
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [expandedGameId, handleClose]);
-
-  if (expandedGame && expandedAggregate) {
-    return (
-      <div>
-        <button
-          ref={backBtnRef}
-          onClick={handleClose}
-          className="flex items-center gap-1.5 text-sm text-dxtr-teal hover:text-dxtr-teal/80 mb-4 focus-visible:ring-2 focus-visible:ring-dxtr-teal rounded px-1 outline-none"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to all games
-        </button>
-        <ExpandedGamePanel
-          game={expandedGame}
-          aggregate={expandedAggregate}
-          dailyBuckets={progress.dailyBuckets}
-          patientId={patientId}
-        />
-      </div>
-    );
-  }
-
+  // Filter aggregates based on selected day
   const filteredAggregates = selectedDay
     ? progress.perGame.map((agg) => {
         const dayData = progress.dailyBuckets.find((d) => d.date === selectedDay);
@@ -94,34 +59,49 @@ export function GameCardGrid({
     : progress.perGame;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {games.map((game) => {
-        const aggregate = filteredAggregates.find((a) => a.gameId === game.id) ?? {
-          gameId: game.id,
-          reps: 0,
-          expectedReps: game.targetRepsPerDay * progress.dailyBuckets.length,
-          completionPct: 0,
-          homeReps: 0,
-          clinicReps: 0,
-          lastPlayed: null,
-          primaryMetricTrend: [],
-          primaryMetricDelta: 0,
-          primaryMetricDeltaPct: 0,
-          status: "insufficient_data" as const,
-          reviewFlag: null,
-        };
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {games.map((game) => {
+          const aggregate = filteredAggregates.find((a) => a.gameId === game.id) ?? {
+            gameId: game.id,
+            reps: 0,
+            expectedReps: game.targetRepsPerDay * progress.dailyBuckets.length,
+            completionPct: 0,
+            homeReps: 0,
+            clinicReps: 0,
+            lastPlayed: null,
+            primaryMetricTrend: [],
+            primaryMetricDelta: 0,
+            primaryMetricDeltaPct: 0,
+            status: "insufficient_data" as const,
+            reviewFlag: null,
+          };
 
-        return (
-          <GameProgressCard
-            key={game.id}
-            game={game}
-            aggregate={aggregate}
-            isExpanded={expandedGameId === game.id}
-            onClick={() => onExpandGame(game.id)}
-            cardRef={(el) => { cardRefs.current[game.id] = el; }}
+          return (
+            <GameProgressCard
+              key={game.id}
+              game={game}
+              aggregate={aggregate}
+              isExpanded={expandedGameId === game.id}
+              onClick={() => onExpandGame(game.id)}
+              cardRef={(el) => { cardRefs.current[game.id] = el; }}
+            />
+          );
+        })}
+      </div>
+
+      {/* Modal for Expanded View */}
+      {expandedGame && expandedAggregate && (
+        <Modal isOpen={!!expandedGameId} onClose={handleClose}>
+          <ExpandedGamePanel
+            game={expandedGame}
+            aggregate={expandedAggregate}
+            dailyBuckets={progress.dailyBuckets}
+            patientId={patientId}
+            className="border-0 shadow-none p-0" // Remove card styling since it's in a modal
           />
-        );
-      })}
-    </div>
+        </Modal>
+      )}
+    </>
   );
 }
