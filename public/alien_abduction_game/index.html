@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alien Abduction Game</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    canvas {
+      display: block;
+      max-width: 100vw;
+      max-height: 100vh;
+      aspect-ratio: 4 / 3;
+      width: min(100vw, calc(100vh * 4 / 3));
+      height: min(100vh, calc(100vw * 3 / 4));
+      image-rendering: pixelated;
+    }
+    #dxtr-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 500;
+      background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      text-align: center;
+    }
+    #dxtr-overlay h1 { font-size: 2.5em; margin-bottom: 0.3em; }
+    #dxtr-overlay p { font-size: 1.2em; color: #add8e6; margin-bottom: 1.5em; }
+    .dxtr-btn {
+      padding: 16px 40px;
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, background-color 0.3s;
+      min-height: 48px;
+    }
+    .dxtr-btn:hover { transform: scale(1.03); }
+    .dxtr-btn:active { transform: scale(0.97); }
+    .dxtr-btn-primary { background-color: #5BB5CF; }
+    .dxtr-btn-secondary { background: transparent; border: 1px solid #add8e6; color: #add8e6; margin-top: 12px; }
+
+    /* ── Connection overlay ────────────────────────────────────────────────── */
+    #connection-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 600;
+      background: linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      text-align: center;
+    }
+    #connection-overlay h1 { font-size: 2.5em; margin-bottom: 0.2em; }
+    #connection-overlay .subtitle { font-size: 1.2em; color: #add8e6; margin-bottom: 2em; }
+    .overlay-btn-row { display: flex; gap: 16px; margin-bottom: 1.5em; }
+    .overlay-connect-btn {
+      padding: 16px 36px;
+      font-size: 1.1em;
+      font-weight: bold;
+      color: #fff;
+      background: #5BB5CF;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.15s, background-color 0.3s;
+      min-height: 48px;
+    }
+    .overlay-connect-btn:hover { transform: scale(1.03); background: #4aa3bd; }
+    .overlay-connect-btn:active { transform: scale(0.97); }
+    .overlay-connect-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    #overlay-status {
+      min-height: 1.5em;
+      font-size: 1em;
+      margin-bottom: 1.5em;
+    }
+    #overlay-status.connecting { color: #ffa500; }
+    #overlay-status.connected { color: #4CAF50; }
+    #overlay-status.error { color: #ff6b6b; }
+    #overlay-skip {
+      background: transparent;
+      border: 1px solid #add8e6;
+      color: #add8e6;
+      padding: 12px 32px;
+      font-size: 1em;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    #overlay-skip:hover { transform: scale(1.03); color: #fff; border-color: #fff; }
+
+    /* ── In-game device status badge ──────────────────────────────────────── */
+    #device-status {
+      position: fixed;
+      top: 8px; right: 8px;
+      z-index: 400;
+      padding: 4px 12px;
+      border-radius: 8px;
+      font-size: 0.75em;
+      font-weight: 600;
+      color: #fff;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      display: none;
+    }
+    #device-status.connected { display: block; background: rgba(76,175,80,0.7); }
+    #device-status.disconnected { display: block; background: rgba(255,107,107,0.6); }
+  </style>
+</head>
+<body>
+<!-- ===== ESP32 Connection Overlay (shown first) ===== -->
+<div id="connection-overlay">
+  <h1>&#x1F6F8; Alien Abduction</h1>
+  <p class="subtitle">Connect your DXTR controller to begin</p>
+  <div class="overlay-btn-row">
+    <button id="overlay-ble-btn" class="overlay-connect-btn" onclick="window._overlayConnectBLE()">&#x1F4F6; Bluetooth</button>
+    <button id="overlay-usb-btn" class="overlay-connect-btn" onclick="window._overlayConnectUSB()">&#x1F50C; USB Serial</button>
+  </div>
+  <div id="overlay-status"></div>
+  <button id="overlay-skip" onclick="window._skipConnection()">Continue without device</button>
+</div>
+
+<div id="dxtr-overlay"></div>
+<div id="device-status"></div>
+<canvas id="game" width="800" height="600"></canvas>
+<script>
+(function () {
+  "use strict";
+
+  // ── DXTR Integration ─────────────────────────────────────────────────────────
+  var urlParams  = new URLSearchParams(window.location.search);
+  var patientId  = urlParams.get("patientId") || "edwin-001";
+  var gameIdForApi = "alien-abduction";
+  var setsCompletedToday = 0;
+  var setsTarget = 5;
+  var dxtrReady = false;
+
+  function backToMissions() {
+    window.parent.postMessage({ type: "gameComplete" }, "*");
+  }
+
+  function showDxtrOverlay(html) {
+    var el = document.getElementById("dxtr-overlay");
+    el.innerHTML = html;
+    el.style.display = "flex";
+  }
+
+  function hideDxtrOverlay() {
+    document.getElementById("dxtr-overlay").style.display = "none";
+  }
+
+  async function fetchTodayProgress() {
+    try {
+      var response = await fetch("/api/daily-progress/" + patientId + "/today?gameId=" + gameIdForApi);
+      if (response.ok) {
+        var data = await response.json();
+        setsCompletedToday = data.setsCompleted || 0;
+        setsTarget = data.setsTarget || 5;
+      }
+    } catch (err) {
+      console.error("Error fetching daily progress:", err);
+    }
+  }
+
+  async function submitSetResults(levelsCompleted) {
+    var reps = [];
+    for (var i = 1; i <= levelsCompleted; i++) {
+      reps.push({
+        repNumber: i,
+        expectedDirection: "abduct",
+        actualDirection: "abduct",
+        achievedAngle: i,
+        success: true,
+        reactionTimeMs: null
+      });
+    }
+
+    try {
+      var response = await fetch("/api/daily-progress/complete-set", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patientId,
+          gameId: gameIdForApi,
+          reps: reps
+        })
+      });
+
+      if (response.ok) {
+        var result = await response.json();
+        setsCompletedToday = result.setsCompletedToday;
+        return result;
+      }
+    } catch (err) {
+      console.error("Error submitting set results:", err);
+    }
+    return null;
+  }
+
+  // ── ESP32 Connection ─────────────────────────────────────────────────────────
+  var BLE_SERVICE_UUID        = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+  var BLE_CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+
+  var connectionType    = null;   // 'serial' | 'ble' | null
+  var esp32Connected    = false;
+
+  // USB Serial state
+  var esp32Port         = null;
+  var esp32Reader       = null;
+  var esp32Buffer       = '';
+
+  // BLE state
+  var bleDevice         = null;
+  var bleCharacteristic = null;
+
+  // FSR threshold — tune when sensor is physically wired
+  var FSR_THRESHOLD = 200;
+
+  // ── USB Serial functions ────────────────────────────────────────────────────
+
+  async function connectESP32() {
+    if (!('serial' in navigator)) {
+      return false;
+    }
+    try {
+      updateDeviceStatus('connecting');
+      esp32Port = await navigator.serial.requestPort();
+      await esp32Port.open({ baudRate: 115200 });
+      connectionType = 'serial';
+      esp32Connected = true;
+      updateDeviceStatus('connected');
+      readESP32Data();
+      return true;
+    } catch (error) {
+      console.error('ESP32 serial connection error:', error);
+      updateDeviceStatus('disconnected');
+      esp32Connected = false;
+      return false;
+    }
+  }
+
+  async function readESP32Data() {
+    if (!esp32Port || !esp32Port.readable) return;
+    var textDecoder = new TextDecoderStream();
+    esp32Port.readable.pipeTo(textDecoder.writable);
+    esp32Reader = textDecoder.readable.getReader();
+    try {
+      while (esp32Connected) {
+        var result = await esp32Reader.read();
+        if (result.done) break;
+        if (result.value) {
+          esp32Buffer += result.value;
+          processESP32Buffer();
+        }
+      }
+    } catch (error) {
+      if (esp32Connected) {
+        console.error('ESP32 read error:', error);
+        await disconnectESP32();
+      }
+    }
+  }
+
+  function processESP32Buffer() {
+    var lines = esp32Buffer.split('\n');
+    esp32Buffer = lines.pop();
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (line.length > 0) {
+        parseESP32Data(line);
+      }
+    }
+  }
+
+  // ── BLE functions ───────────────────────────────────────────────────────────
+
+  async function connectESP32BLE() {
+    if (!('bluetooth' in navigator)) {
+      return false;
+    }
+    try {
+      updateDeviceStatus('connecting');
+
+      bleDevice = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'DXTR' }],
+        optionalServices: [BLE_SERVICE_UUID]
+      });
+
+      bleDevice.addEventListener('gattserverdisconnected', onBLEDisconnected);
+
+      var server  = await bleDevice.gatt.connect();
+      var service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      bleCharacteristic = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
+
+      await bleCharacteristic.startNotifications();
+      bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
+
+      connectionType = 'ble';
+      esp32Connected = true;
+      updateDeviceStatus('connected');
+      return true;
+    } catch (error) {
+      console.error('BLE connection error:', error);
+      updateDeviceStatus('disconnected');
+      esp32Connected = false;
+      bleDevice = null;
+      bleCharacteristic = null;
+      return false;
+    }
+  }
+
+  function onBLEData(event) {
+    var value = event.target.value;
+    var text = new TextDecoder().decode(value);
+    if (text && text.length > 0) {
+      parseESP32Data(text.trim());
+    }
+  }
+
+  function onBLEDisconnected() {
+    console.log('BLE device disconnected');
+    esp32Connected = false;
+    connectionType = null;
+    bleCharacteristic = null;
+    updateDeviceStatus('disconnected');
+  }
+
+  // ── Shared disconnect ───────────────────────────────────────────────────────
+
+  async function disconnectESP32() {
+    try {
+      esp32Connected = false;
+      if (connectionType === 'serial') {
+        if (esp32Reader) { await esp32Reader.cancel(); esp32Reader = null; }
+        if (esp32Port)   { await esp32Port.close();    esp32Port   = null; }
+      } else if (connectionType === 'ble') {
+        if (bleCharacteristic) {
+          try { await bleCharacteristic.stopNotifications(); } catch(e) {}
+          bleCharacteristic = null;
+        }
+        if (bleDevice && bleDevice.gatt.connected) {
+          bleDevice.gatt.disconnect();
+        }
+        bleDevice = null;
+      }
+      connectionType = null;
+      updateDeviceStatus('disconnected');
+    } catch (error) {
+      console.error('ESP32 disconnect error:', error);
+    }
+  }
+
+  // ── FSR → spacePressed mapping ──────────────────────────────────────────────
+
+  function parseESP32Data(jsonString) {
+    try {
+      var data = JSON.parse(jsonString);
+      if (typeof data.fsr === 'number') {
+        var pressed = data.fsr >= FSR_THRESHOLD;
+        if (pressed !== spacePressed) {
+          spacePressed = pressed;
+          // Also allow FSR press to start game from start screen
+          if (pressed && state === 'start' && dxtrReady) {
+            startGame();
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore malformed JSON (common during device startup)
+    }
+  }
+
+  // ── Device status badge ─────────────────────────────────────────────────────
+
+  function updateDeviceStatus(s) {
+    var el = document.getElementById('device-status');
+    if (!el) return;
+    if (s === 'connected') {
+      el.className = 'connected';
+      el.textContent = connectionType === 'ble' ? 'BLE Connected' : 'USB Connected';
+    } else if (s === 'connecting') {
+      el.className = '';
+      el.textContent = 'Connecting...';
+      el.style.display = 'block';
+    } else {
+      el.className = 'disconnected';
+      el.textContent = 'Device Disconnected';
+    }
+  }
+
+  // ── Connection overlay logic ────────────────────────────────────────────────
+
+  var gameStarted = false;
+
+  function setOverlayButtonsDisabled(disabled) {
+    document.getElementById('overlay-ble-btn').disabled = disabled;
+    document.getElementById('overlay-usb-btn').disabled = disabled;
+  }
+
+  window._overlayConnectUSB = async function () {
+    var status = document.getElementById('overlay-status');
+    if (!('serial' in navigator)) {
+      status.className = 'error';
+      status.textContent = 'Web Serial API not supported. Use Chrome or Edge.';
+      return;
+    }
+    setOverlayButtonsDisabled(true);
+    status.className = 'connecting';
+    status.textContent = 'Waiting for USB device selection...';
+    try {
+      var success = await connectESP32();
+      if (success) {
+        status.className = 'connected';
+        status.textContent = 'Connected via USB! Starting game...';
+        setTimeout(launchGame, 600);
+      } else {
+        status.className = 'error';
+        status.textContent = 'Connection failed. Please try again.';
+        setOverlayButtonsDisabled(false);
+      }
+    } catch (err) {
+      status.className = 'error';
+      status.textContent = 'Connection failed: ' + err.message;
+      setOverlayButtonsDisabled(false);
+    }
+  };
+
+  window._overlayConnectBLE = async function () {
+    var status = document.getElementById('overlay-status');
+    if (!('bluetooth' in navigator)) {
+      status.className = 'error';
+      status.textContent = 'Web Bluetooth not supported. Use Chrome or Edge on desktop.';
+      return;
+    }
+    setOverlayButtonsDisabled(true);
+    status.className = 'connecting';
+    status.textContent = 'Searching for DXTR-Controller...';
+    try {
+      var success = await connectESP32BLE();
+      if (success) {
+        status.className = 'connected';
+        status.textContent = 'Connected via Bluetooth! Starting game...';
+        setTimeout(launchGame, 600);
+      } else {
+        status.className = 'error';
+        status.textContent = 'Bluetooth connection failed. Please try again.';
+        setOverlayButtonsDisabled(false);
+      }
+    } catch (err) {
+      status.className = 'error';
+      status.textContent = 'Connection failed: ' + err.message;
+      setOverlayButtonsDisabled(false);
+    }
+  };
+
+  window._skipConnection = function () {
+    launchGame();
+  };
+
+  async function launchGame() {
+    if (gameStarted) return;
+    gameStarted = true;
+
+    await fetchTodayProgress();
+
+    if (setsCompletedToday >= setsTarget) {
+      document.getElementById('connection-overlay').style.display = 'none';
+      showDxtrOverlay(
+        '<h1>All Done!</h1>' +
+        '<p>You\'ve completed all ' + setsTarget + ' sets for today!</p>' +
+        '<button class="dxtr-btn dxtr-btn-primary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
+      );
+      return;
+    }
+
+    document.getElementById('connection-overlay').style.display = 'none';
+    dxtrReady = true;
+    state = 'start';
+    requestAnimationFrame(loop);
+  }
+
+  // ── Constants ────────────────────────────────────────────────────────────────
+  const W = 800, H = 600, FPS = 60;
+  const UFO_W = 132, UFO_H = 98;
+  const UFO_SPEED         = 0.0015;
+  const UFO_WOBBLE_AMOUNT = 25;
+  const PATH_LEFT         = UFO_W / 2;
+  const PATH_RIGHT        = W - UFO_W / 2;
+  const PATH_Y            = H / 3;
+  const COW_W = 40,  COW_H = 40;
+  const COW_SUCK_SPEED = 6;
+  const COW_FADE_SPEED = 0.08;
+
+  const COLORS = {
+    orange:    "#ffa500",
+    lightBlue: "#add8e6",
+    red:       "#ff0000",
+    gray:      "#a9a9a9",
+    white:     "#ffffff",
+    black:     "#000000",
+  };
+
+  // ── Canvas / context ─────────────────────────────────────────────────────────
+  const canvas = document.getElementById("game");
+  const ctx    = canvas.getContext("2d");
+
+  // ── Asset loading ─────────────────────────────────────────────────────────────
+  function loadImage(src) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload  = () => resolve(img);
+      img.onerror = () => { console.warn("Could not load:", src); resolve(null); };
+      img.src = src;
+    });
+  }
+
+  // ── Game state ────────────────────────────────────────────────────────────────
+  let state = "loading";
+
+  let skyBg, grassOverlay, ufoSheet, beamImg, cowImg;
+  let ufoFrames = [];
+
+  let ufoPathT      = 0;
+  let beamAnimCount = 0;
+  let spacePressed  = false;
+
+  let targets = [];
+  let sucking = [];
+
+  let score           = 0;
+  let currentLevel    = 1;
+  let abductionTarget = 10;
+  let countdownTimer  = 60;
+  let currentScore    = 0;
+  let spawnCounter    = 0;
+  let highestLevelCompleted = 0;
+
+  let lastTime    = null;
+  let accumulator = 0;
+  const FRAME_MS  = 1000 / FPS;
+
+  // ── Input ─────────────────────────────────────────────────────────────────────
+  document.addEventListener("keydown", (e) => {
+    if (e.code === "Space") {
+      e.preventDefault();
+      if (state === "start" && dxtrReady) { startGame(); return; }
+      if (state === "playing") { spacePressed = true; }
+    } else {
+      if (state === "start" && dxtrReady) { startGame(); return; }
+    }
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.code === "Space") spacePressed = false;
+  });
+
+  // ── Slice spritesheet ─────────────────────────────────────────────────────────
+  function buildUfoFrames(sheet) {
+    const frameW = 66, frameH = 49;
+    for (let i = 0; i < 3; i++) {
+      const oc     = document.createElement("canvas");
+      oc.width     = UFO_W;
+      oc.height    = UFO_H;
+      const oc_ctx = oc.getContext("2d");
+      oc_ctx.drawImage(sheet, i * frameW, 0, frameW, frameH, 0, 0, UFO_W, UFO_H);
+      ufoFrames.push(oc);
+    }
+  }
+
+  // ── Start / reset ─────────────────────────────────────────────────────────────
+  function startGame() {
+    hideDxtrOverlay();
+    ufoPathT        = 0;
+    beamAnimCount   = 0;
+    spacePressed    = false;
+    targets         = [];
+    sucking         = [];
+    score           = 0;
+    currentLevel    = 1;
+    abductionTarget = 10;
+    countdownTimer  = 60;
+    currentScore    = 0;
+    spawnCounter    = 0;
+    highestLevelCompleted = 0;
+    state = "playing";
+  }
+
+  // ── UFO position helper ───────────────────────────────────────────────────────
+  function getUfoPos() {
+    const pathCenter    = (PATH_LEFT + PATH_RIGHT) / 2;
+    const pathHalfWidth = (PATH_RIGHT - PATH_LEFT) / 2;
+    const ufoX   = pathCenter + pathHalfWidth * Math.sin(ufoPathT * 2 * Math.PI);
+    const wobble = Math.sin(ufoPathT * Math.PI * 10) * UFO_WOBBLE_AMOUNT;
+    const ufoCX  = Math.round(ufoX);
+    const ufoCY  = Math.round(PATH_Y + wobble);
+    return {
+      cx:     ufoCX,
+      cy:     ufoCY,
+      left:   ufoCX - UFO_W / 2,
+      top:    ufoCY - UFO_H / 2,
+      bottom: ufoCY - UFO_H / 2 + UFO_H,
+    };
+  }
+
+  // ── Update ────────────────────────────────────────────────────────────────────
+  function update() {
+    if (state !== "playing") return;
+
+    if (!spacePressed && sucking.length === 0) {
+      ufoPathT += UFO_SPEED;
+      if (ufoPathT >= 1) ufoPathT = 0;
+    }
+
+    const ufo = getUfoPos();
+
+    const totalCows = targets.length + sucking.length;
+    const spawnRate = 90;
+    spawnCounter++;
+    if (totalCows < 3 && spawnCounter >= spawnRate) {
+      targets.push({ x: Math.floor(Math.random() * (W - COW_W)), y: H - 50, w: COW_W, h: COW_H });
+      spawnCounter = 0;
+    }
+
+    if (spacePressed) {
+      const beamW    = beamImg ? beamImg.naturalWidth : 42;
+      const beamLeft = ufo.cx - beamW / 2;
+      const beamTop  = ufo.bottom;
+      const beamH    = H - ufo.bottom;
+
+      targets = targets.filter((t) => {
+        const hit =
+          t.x < beamLeft + beamW &&
+          t.x + t.w > beamLeft &&
+          t.y < beamTop + beamH &&
+          t.y + t.h > beamTop;
+        if (hit) sucking.push({ x: t.x, y: t.y, w: t.w, h: t.h });
+        return !hit;
+      });
+    }
+
+    const ufoRect = { left: ufo.left, top: ufo.top, right: ufo.left + UFO_W, bottom: ufo.top + UFO_H };
+
+    sucking = sucking.filter((cow) => {
+      if (cow.fading) {
+        cow.alpha -= COW_FADE_SPEED;
+        if (cow.alpha <= 0) {
+          currentScore++;
+          score++;
+          return false;
+        }
+        return true;
+      }
+      cow.y -= COW_SUCK_SPEED;
+      const cowRight = cow.x + cow.w, cowBottom = cow.y + cow.h;
+      if (cow.x < ufoRect.right && cowRight > ufoRect.left && cow.y < ufoRect.bottom && cowBottom > ufoRect.top) {
+        cow.fading = true;
+        cow.alpha = 1;
+      }
+      return true;
+    });
+
+    countdownTimer -= 1 / FPS;
+    if (countdownTimer <= 0) {
+      if (currentScore < abductionTarget) { onGameOver(); return; }
+      else advanceLevel();
+    }
+
+    if (currentScore >= abductionTarget) advanceLevel();
+  }
+
+  function advanceLevel() {
+    highestLevelCompleted = currentLevel;
+    currentLevel++;
+    if (currentLevel <= 10) {
+      currentScore    = 0;
+      abductionTarget = 10 * currentLevel;
+      countdownTimer  = 60;
+    } else {
+      onVictory();
+    }
+  }
+
+  // ── DXTR End-of-game flows ────────────────────────────────────────────────────
+
+  async function onGameOver() {
+    state = "gameover";
+    var levelsCompleted = highestLevelCompleted;
+    if (levelsCompleted > 0) {
+      await submitSetResults(levelsCompleted);
+    }
+    showDxtrOverlay(
+      '<h1>Game Over</h1>' +
+      '<p>Final score: ' + score + ' | Levels completed: ' + levelsCompleted + '</p>' +
+      '<p>Set ' + setsCompletedToday + ' / ' + setsTarget + ' completed today</p>' +
+      '<button class="dxtr-btn dxtr-btn-primary" onclick="document.dispatchEvent(new CustomEvent(\'dxtr-play-again\'))">Play Again</button>' +
+      '<button class="dxtr-btn dxtr-btn-secondary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
+    );
+  }
+
+  async function onVictory() {
+    state = "victory";
+    highestLevelCompleted = 10;
+    await submitSetResults(10);
+    showDxtrOverlay(
+      '<h1>Congratulations!</h1>' +
+      '<p>You completed all 10 levels! Score: ' + score + '</p>' +
+      '<p>Set ' + setsCompletedToday + ' / ' + setsTarget + ' completed today</p>' +
+      '<button class="dxtr-btn dxtr-btn-primary" onclick="document.dispatchEvent(new CustomEvent(\'dxtr-play-again\'))">Play Again</button>' +
+      '<button class="dxtr-btn dxtr-btn-secondary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
+    );
+  }
+
+  document.addEventListener("dxtr-play-again", function () {
+    if (setsCompletedToday >= setsTarget) {
+      showDxtrOverlay(
+        '<h1>All Done!</h1>' +
+        '<p>You\'ve completed all ' + setsTarget + ' sets for today!</p>' +
+        '<button class="dxtr-btn dxtr-btn-primary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
+      );
+    } else {
+      hideDxtrOverlay();
+      startGame();
+    }
+  });
+
+  // ── Draw ──────────────────────────────────────────────────────────────────────
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    if      (state === "loading")  drawLoading();
+    else if (state === "start")    drawStart();
+    else if (state === "playing")  drawGame();
+    else if (state === "gameover") drawGameOverCanvas();
+    else if (state === "victory")  drawVictoryCanvas();
+  }
+
+  function drawLoading() {
+    ctx.fillStyle = COLORS.black;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = COLORS.white;
+    ctx.font = "30px sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Loading...", W / 2, H / 2);
+  }
+
+  function drawStart() {
+    ctx.fillStyle = COLORS.black;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = COLORS.white;
+    ctx.textAlign = "center";
+    ctx.font = "22px sans-serif";
+    var controlHint = esp32Connected
+      ? "Squeeze the controller to activate the tractor beam."
+      : "Press SPACE to stop and activate the tractor beam.";
+    var startHint = esp32Connected
+      ? "Squeeze to start..."
+      : "Press any key to start...";
+    const lines = [
+      "Welcome, Alien Abductor!",
+      "You're behind on your weekly quota of abductions.",
+      "Help the alien catch up by abducting targets on Earth!",
+      "",
+      "The UFO flies on its own.",
+      controlHint,
+      "Cows in the beam get sucked up! Release to fly again.",
+      "",
+      startHint,
+    ];
+    let y = H / 5;
+    for (const line of lines) { ctx.fillText(line, W / 2, y); y += 35; }
+  }
+
+  function drawImageCover(img, x, y, w, h) {
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = Math.max(w / iw, h / ih);
+    const cw = w / scale, ch = h / scale;
+    const sx = (iw - cw) / 2, sy = (ih - ch) / 2;
+    ctx.drawImage(img, sx, sy, cw, ch, x, y, w, h);
+  }
+
+  function drawGame() {
+    if (skyBg) drawImageCover(skyBg, 0, 0, W, H);
+    else { ctx.fillStyle = "#111"; ctx.fillRect(0, 0, W, H); }
+
+    if (grassOverlay) drawImageCover(grassOverlay, 0, 0, W, H);
+
+    const ufo = getUfoPos();
+
+    const beamActive = spacePressed || sucking.length > 0;
+    if (beamActive && beamImg) {
+      const beamW  = beamImg.naturalWidth;
+      const beamH  = H - ufo.bottom;
+      if (beamH > 0) ctx.drawImage(beamImg, ufo.cx - beamW / 2, ufo.bottom, beamW, beamH);
+    }
+
+    if (beamActive) {
+      beamAnimCount++;
+      const fi = 1 + Math.floor(beamAnimCount / 8) % 2;
+      if (ufoFrames[fi]) ctx.drawImage(ufoFrames[fi], ufo.left, ufo.top);
+    } else {
+      beamAnimCount = 0;
+      if (ufoFrames[0]) ctx.drawImage(ufoFrames[0], ufo.left, ufo.top);
+    }
+
+    for (const t of targets) {
+      if (cowImg) ctx.drawImage(cowImg, t.x, t.y, t.w, t.h);
+      else { ctx.fillStyle = "#8B4513"; ctx.fillRect(t.x, t.y, t.w, t.h); }
+    }
+
+    for (const cow of sucking) {
+      ctx.save();
+      if (cow.fading) ctx.globalAlpha = Math.max(0, cow.alpha);
+      if (cowImg) ctx.drawImage(cowImg, cow.x, cow.y, cow.w, cow.h);
+      else { ctx.fillStyle = "#8B4513"; ctx.fillRect(cow.x, cow.y, cow.w, cow.h); }
+      ctx.restore();
+    }
+
+    drawHud();
+  }
+
+  function drawHud() {
+    ctx.textAlign = "left";
+    ctx.font = "bold 22px sans-serif";
+    const y = 10, spacing = 75;
+    let x = 10;
+    const items = [
+      { label: `Score: ${score}`,                               color: COLORS.orange    },
+      { label: `Level: ${currentLevel}`,                        color: COLORS.lightBlue },
+      { label: `Time: ${Math.ceil(countdownTimer)}`,            color: COLORS.red       },
+      { label: `Abductions: ${currentScore}/${abductionTarget}`, color: COLORS.gray     },
+    ];
+    for (const item of items) {
+      const tw = ctx.measureText(item.label).width;
+      ctx.fillStyle = item.color;
+      ctx.fillRect(x - 5, y - 2, tw + 10, 28);
+      ctx.fillStyle = COLORS.white;
+      ctx.fillText(item.label, x, y + 20);
+      x += tw + spacing;
+    }
+  }
+
+  function drawGameOverCanvas() {
+    ctx.fillStyle = COLORS.black; ctx.fillRect(0, 0, W, H);
+  }
+
+  function drawVictoryCanvas() {
+    ctx.fillStyle = COLORS.black; ctx.fillRect(0, 0, W, H);
+  }
+
+  // ── Main loop ─────────────────────────────────────────────────────────────────
+  function loop(timestamp) {
+    if (lastTime === null) lastTime = timestamp;
+    accumulator += timestamp - lastTime;
+    lastTime = timestamp;
+    while (accumulator >= FRAME_MS) { update(); accumulator -= FRAME_MS; }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────────
+  async function init() {
+    state = "loading"; draw();
+    const skyOptions = ["greysky.png", "lightningsky.png", "nightmoonsky.png", "purplesky.png"];
+    const chosenSky  = skyOptions[Math.floor(Math.random() * skyOptions.length)];
+    [skyBg, grassOverlay, ufoSheet, beamImg, cowImg] = await Promise.all([
+      loadImage(chosenSky),
+      loadImage("grass_background_transparent_sky.png"),
+      loadImage("animation/ufo_spritesheet.png"),
+      loadImage("animation/tractorbeam.png"),
+      loadImage("cow.png"),
+    ]);
+    if (ufoSheet) buildUfoFrames(ufoSheet);
+    // Assets loaded. Connection overlay is already visible and handles
+    // the transition into the game via launchGame().
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
