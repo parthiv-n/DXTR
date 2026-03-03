@@ -37,20 +37,20 @@ export default function PatientDashboardPage() {
 
   return (
     <AppShell variant="patient">
-      {/* Use flex column to fill available viewport height */}
-      <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-1.5rem)] pb-12">
-        {/* Header - compact */}
-        <div className="mb-2 md:mb-3 shrink-0">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-dxtr-teal leading-tight">
+      {/* Use flex column to fill available viewport height - scaled for 175% zoom equivalent */}
+      <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-1.5rem)] pb-20">
+        {/* Header - larger sizing */}
+        <div className="mb-4 md:mb-6 shrink-0">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-dxtr-teal leading-tight">
           Edwin&apos;s Dashboard
         </h1>
-          <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-700">
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-700">
           Daily Missions:
         </h2>
           </div>
 
-        {/* Game tiles grid - fills remaining space */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2 md:gap-x-8 md:gap-y-3 flex-1 min-h-0">
+        {/* Game tiles grid - larger gaps and spacing */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-10 gap-y-5 md:gap-x-14 md:gap-y-6 flex-1 min-h-0">
           {gameVisuals.map((visual) => {
             const progress = getProgressForGame(visual.id);
             const setsCompleted = progress?.setsCompleted ?? 0;
@@ -64,7 +64,7 @@ export default function PatientDashboardPage() {
               <div className="flex flex-col">
                 {/* Thumbnail - 2:1 aspect ratio */}
                     <div
-                  className={`aspect-[2/1] rounded-xl relative overflow-hidden border-2 transition-all ${
+                  className={`aspect-[2/1] rounded-2xl relative overflow-hidden border-[3px] transition-all ${
                     visual.enabled
                       ? "border-dxtr-teal/30 hover:border-dxtr-teal/60 hover:shadow-lg active:scale-[0.98]"
                       : "border-gray-200 opacity-50"
@@ -79,20 +79,20 @@ export default function PatientDashboardPage() {
                   {/* Lock icon for disabled games */}
                   {!visual.enabled && (
                       <div className="absolute inset-0 flex items-center justify-center">
-                      <Lock className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-gray-400/60" />
+                      <Lock className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-gray-400/60" />
                         </div>
                   )}
 
                   {/* Completion checkmark badge */}
                   {visual.enabled && allComplete && (
-                    <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow">
+                    <div className="absolute top-3 right-3 bg-green-500 text-white text-sm font-bold px-3 py-1.5 rounded-full shadow">
                       ✓ Done!
                       </div>
                   )}
                       
                   {/* Green vertical progress bar on right edge */}
                   {visual.enabled && setsCompleted > 0 && (
-                    <div className="absolute top-0 right-0 w-1.5 h-full bg-black/10">
+                    <div className="absolute top-0 right-0 w-2.5 h-full bg-black/10">
                         <div 
                         className={`w-full transition-all duration-500 rounded-b ${
                           allComplete ? "bg-green-400" : "bg-dxtr-teal"
@@ -104,7 +104,7 @@ export default function PatientDashboardPage() {
                       </div>
                       
                 {/* Round dots connected by lines + labels below tile */}
-                <div className="mt-1.5 shrink-0 mx-auto w-3/4 max-w-[200px]">
+                <div className="mt-3 shrink-0 mx-auto w-3/4 max-w-[320px]">
                   {/* Dots and connecting lines row */}
                   <div className="flex items-center">
                     {rounds.map((roundNum) => {
@@ -117,7 +117,7 @@ export default function PatientDashboardPage() {
                         <div key={roundNum} className={`flex items-center ${isLast ? "" : "flex-1"}`}>
                           {/* Dot */}
                           <div
-                            className={`w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 rounded-full border-2 shrink-0 transition-colors ${
+                            className={`w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full border-2 shrink-0 transition-colors ${
                               isComplete
                                 ? "bg-dxtr-teal border-dxtr-teal"
                                 : isCurrent
@@ -130,7 +130,7 @@ export default function PatientDashboardPage() {
                           {/* Connecting line (not after last dot) */}
                           {!isLast && (
                             <div
-                              className={`h-0.5 flex-1 transition-colors ${
+                              className={`h-1 flex-1 transition-colors ${
                                 nextComplete || isComplete && (roundNum + 1) <= setsCompleted
                                   ? "bg-dxtr-teal"
                                   : visual.enabled
@@ -150,7 +150,7 @@ export default function PatientDashboardPage() {
                       const isLast = roundNum === setsTarget;
                       return (
                         <div key={roundNum} className={`${isLast ? "" : "flex-1"} flex justify-start`}>
-                          <span className={`text-[7px] sm:text-[8px] md:text-[9px] mt-0.5 whitespace-nowrap -ml-1 ${
+                          <span className={`text-[11px] sm:text-[12px] md:text-[14px] mt-1 whitespace-nowrap -ml-1 ${
                             isComplete ? "text-dxtr-teal font-semibold" : "text-gray-400"
                           }`}>
                             Round {roundNum}
@@ -162,7 +162,7 @@ export default function PatientDashboardPage() {
                     </div>
                     
                 {/* Game name in brown lettering */}
-                <p className="text-center text-sm sm:text-base md:text-lg font-bold text-dxtr-brown mt-1">
+                <p className="text-center text-lg sm:text-xl md:text-2xl font-bold text-dxtr-brown mt-2">
                       {visual.name}
                     </p>
                   </div>
@@ -190,11 +190,11 @@ export default function PatientDashboardPage() {
       </div>
 
       {/* Yellow Ask Question Bar - fixed at bottom */}
-      <div className="fixed bottom-0 left-0 md:left-14 right-0 bg-dxtr-gold py-3 px-4 md:px-6 z-30">
+      <div className="fixed bottom-0 left-0 md:left-14 right-0 bg-dxtr-gold py-5 px-6 md:px-10 z-30">
         <input
           type="text"
           placeholder="Ask a question about your progress!"
-          className="w-full bg-transparent border-none text-dxtr-brown placeholder-dxtr-brown/70 focus:outline-none text-sm md:text-base"
+          className="w-full bg-transparent border-none text-dxtr-brown placeholder-dxtr-brown/70 focus:outline-none text-base md:text-lg"
         />
       </div>
     </AppShell>

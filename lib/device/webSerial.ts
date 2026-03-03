@@ -1,3 +1,4 @@
+/// <reference types="w3c-web-serial" />
 import { Sample } from "@/lib/types";
 
 /**
@@ -76,7 +77,7 @@ export class WebSerialDevice {
     this.isReading = true;
 
     const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = this.port.readable.pipeTo(textDecoder.writable);
+    const readableStreamClosed = this.port.readable.pipeTo(textDecoder.writable as unknown as WritableStream<Uint8Array>);
     this.reader = textDecoder.readable.getReader();
 
     try {

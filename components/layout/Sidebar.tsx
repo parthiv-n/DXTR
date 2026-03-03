@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PenLine, User, BarChart2, Menu, X, Home } from "lucide-react";
+import { PenLine, User, BarChart2, Menu, X, Home, type LucideIcon } from "lucide-react";
 import { useState } from "react";
 
 type NavItem = {
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   label: string;
 };
 
