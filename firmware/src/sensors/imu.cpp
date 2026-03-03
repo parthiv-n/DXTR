@@ -1,9 +1,13 @@
 #include "imu.h"
+#include <Arduino.h>
 #include <Wire.h>
 #include <math.h>
 #include "ICM_20948.h" 
 
 #define WIRE_PORT Wire
+
+// FSR analog pin — update when physically wired to the device
+#define FSR_PIN 36
 
 // SparkFun 9DoF IMU Breakout default: AD0_VAL = 1 -> I2C addr 0x69
 // If you close the ADR jumper: AD0_VAL = 0 -> I2C addr 0x68
@@ -60,6 +64,8 @@ IMUData imu_read() {
     data.my = myICM.magY();
     data.mz = myICM.magZ();
   } 
+
+  data.fsr = analogRead(FSR_PIN);
 
   return data;
 

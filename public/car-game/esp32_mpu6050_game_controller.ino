@@ -25,6 +25,10 @@ class ServerCallbacks : public BLEServerCallbacks {
   void onDisconnect(BLEServer* s) override { bleClientConnected = false; Serial.println("BLE client disconnected"); s->startAdvertising(); }
 };
 
+// ---- FSR ----
+// Update pin when physically wired to the device
+#define FSR_PIN 36
+
 // ---- IMU ----
 ICM_20948_I2C imu;
 
@@ -118,11 +122,12 @@ void loop() {
   if (yaw >  180) yaw -= 360;
   if (yaw < -180) yaw += 360;
 
-  // Build JSON once, send to both transports
-  char json[96];
+  uint16_t fsrValue = analogRead(FSR_PIN);
+
+  char json[128];
   snprintf(json, sizeof(json),
-    "{\"roll\":%.2f,\"yaw\":%.2f,\"pitch\":%.2f}",
-    roll, yaw, pitch);
+    "{\"roll\":%.2f,\"yaw\":%.2f,\"pitch\":%.2f,\"fsr\":%u}",
+    roll, yaw, pitch, fsrValue);
 
   Serial.println(json);
 

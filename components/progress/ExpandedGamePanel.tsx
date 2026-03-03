@@ -36,16 +36,16 @@ const repsChartConfig: ChartConfig = {
   reps: { label: "Reps", color: "#82C785" },
 };
 
-const outcomeChartConfig: ChartConfig = {
-  metric: { label: "Avg Angle", color: "#c2e1a5" },
-};
-
 const difficultyChartConfig: ChartConfig = {
   successRate: { label: "Success Rate", color: "#82C785" },
 };
 
 export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId, className }: Props) {
   const isCarRacer = game.id === "car-racer";
+
+  const outcomeChartConfig: ChartConfig = {
+    metric: { label: game.primaryMetricLabel, color: "#c2e1a5" },
+  };
 
   const repsData = dailyBuckets.map((d) => {
     const dateObj = new Date(d.date + "T00:00:00");
@@ -166,11 +166,37 @@ export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId, cl
           {isCarRacer ? (
             <CarRacerSettings patientId={patientId} />
           ) : (
-            <div className="bg-gray-50 rounded-lg p-5 text-center">
-              <p className="text-sm text-gray-500">Settings coming soon</p>
-              <p className="text-xs text-gray-400 mt-1">
-                This game is not yet configured
-              </p>
+            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">{game.icon}</span>
+                <h3 className="text-sm font-semibold text-gray-600">{game.name}</h3>
+              </div>
+              <div className="space-y-2 text-xs text-gray-500">
+                <p>
+                  <span className="font-medium text-gray-600">Primary metric:</span>{" "}
+                  {game.primaryMetricLabel}
+                  {game.primaryMetricUnit ? ` (${game.primaryMetricUnit})` : ""}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-600">Target reps/day:</span>{" "}
+                  {game.targetRepsPerDay}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-600">Status:</span>{" "}
+                  <span className={
+                    aggregate.status === "improving" ? "text-green-600" :
+                    aggregate.status === "declining" ? "text-amber-600" :
+                    "text-gray-500"
+                  }>
+                    {aggregate.status === "insufficient_data" ? "Not enough data" : aggregate.status}
+                  </span>
+                </p>
+              </div>
+              <div className="border-t border-gray-200 pt-3 text-center">
+                <p className="text-xs text-gray-400">
+                  Adaptive settings not yet available for this game
+                </p>
+              </div>
             </div>
           )}
         </div>

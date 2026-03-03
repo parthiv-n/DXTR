@@ -84,6 +84,14 @@ export async function GET(
             )
           : 0;
 
+      const avgLevelCompleted =
+        allReps.length > 0
+          ? Math.round(
+              (allReps.reduce((sum, r) => sum + r.achievedAngle, 0) /
+                allReps.length) * 10
+            ) / 10
+          : undefined;
+
       return {
         date: dp.date,
         setsCompleted: completedSets.length,
@@ -95,6 +103,9 @@ export async function GET(
         avgReactionTimeMs,
         totalReps: allReps.length,
         successfulReps: successfulReps.length,
+        ...(gameId === "alien-abduction" && avgLevelCompleted !== undefined
+          ? { avgLevelCompleted }
+          : {}),
       };
     });
 

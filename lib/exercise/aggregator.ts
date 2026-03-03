@@ -32,7 +32,7 @@ export function aggregateProgress(
       const daySummary = gameData?.summaries.find((s) => s.date === date);
       const reps = daySummary?.totalReps ?? 0;
       const metric = daySummary
-        ? (daySummary.avgLeftAngle + daySummary.avgRightAngle) / 2 || null
+        ? extractPrimaryMetric(daySummary, game)
         : null;
 
       totalReps += reps;
@@ -74,11 +74,11 @@ export function aggregateProgress(
 
     const trend = days.map((date) => {
       const day = summaries.find((s) => s.date === date);
-      return day ? (day.avgLeftAngle + day.avgRightAngle) / 2 : 0;
+      return day ? (extractPrimaryMetric(day, game) ?? 0) : 0;
     });
 
-    const currentAvg = computeAvgMetric(summaries);
-    const { delta, deltaPct } = computeMetricDelta(summaries, startDate, numDays);
+    const currentAvg = computeAvgMetric(summaries, game);
+    const { delta, deltaPct } = computeMetricDelta(summaries, startDate, numDays, game);
 
     const status = computeGameStatus(summaries, gamePct, deltaPct);
 
@@ -160,10 +160,25 @@ function computeWeeklyBreakdown(buckets: DayBucket[]): WeeklyBreakdown[] {
   return weeks;
 }
 
-function computeAvgMetric(summaries: DailySummary[]): number {
+function extractPrimaryMetric(
+  summary: DailySummary,
+  game: ExerciseGame
+): number | null {
+  switch (game.primaryMetricKey) {
+    case "levelsCompleted":
+      return summary.avgLevelCompleted ?? null;
+    case "avgReactionTime":
+      return summary.avgReactionTimeMs || null;
+    case "avgAngle":
+    default:
+      return (summary.avgLeftAngle + summary.avgRightAngle) / 2 || null;
+  }
+}
+
+function computeAvgMetric(summaries: DailySummary[], game: ExerciseGame): number {
   if (summaries.length === 0) return 0;
   const sum = summaries.reduce(
-    (s, d) => s + (d.avgLeftAngle + d.avgRightAngle) / 2,
+    (s, d) => s + (extractPrimaryMetric(d, game) ?? 0),
     0
   );
   return sum / summaries.length;
@@ -172,7 +187,8 @@ function computeAvgMetric(summaries: DailySummary[]): number {
 function computeMetricDelta(
   summaries: DailySummary[],
   startDate: string,
-  rangeDays: number
+  rangeDays: number,
+  game: ExerciseGame
 ): { delta: number; deltaPct: number } {
   if (summaries.length < 2) return { delta: 0, deltaPct: 0 };
 
@@ -185,8 +201,8 @@ function computeMetricDelta(
     (s) => s.date >= prevStartStr && s.date < startDate
   );
 
-  const currentAvg = computeAvgMetric(currentSummaries);
-  const prevAvg = computeAvgMetric(prevSummaries);
+  const currentAvg = computeAvgMetric(currentSummaries, game);
+  const prevAvg = computeAvgMetric(prevSummaries, game);
 
   if (prevAvg === 0) return { delta: 0, deltaPct: 0 };
 

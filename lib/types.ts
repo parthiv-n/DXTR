@@ -194,6 +194,7 @@ export type DailySummary = {
   avgReactionTimeMs: number; // average reaction time in ms
   totalReps: number;
   successfulReps: number;
+  avgLevelCompleted?: number; // alien-abduction: mean of achievedAngle (level number)
 };
 
 export type GameProgressMetrics = {
