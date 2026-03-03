@@ -77,6 +77,7 @@ function ClinicianDashboardInner() {
   const [patients, setPatients] = useState<PatientInfo[]>([]);
   const [patientsLoading, setPatientsLoading] = useState(true);
   const [patientsError, setPatientsError] = useState<string | null>(null);
+  const [patientsHint, setPatientsHint] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState("");
   const [expandedGameId, setExpandedGameId] = useState<string | null>(gameIdParam);
   const [selectedDay, setSelectedDay] = useState<string | null>(dayParam);
@@ -87,10 +88,19 @@ function ClinicianDashboardInner() {
     async function loadPatients() {
       setPatientsLoading(true);
       setPatientsError(null);
+      setPatientsHint(null);
       try {
         const res = await fetch("/api/patients");
         if (!res.ok) {
           setPatientsError("Failed to load patients. Check your database connection.");
+          // Fetch health check for a more specific hint
+          try {
+            const healthRes = await fetch("/api/health");
+            const health = await healthRes.json();
+            if (health.hint) setPatientsHint(health.hint);
+          } catch {
+            setPatientsHint("Make sure DATABASE_URL is set in Vercel environment variables and the database is reachable.");
+          }
           return;
         }
         const data: PatientInfo[] = await res.json();
@@ -100,6 +110,13 @@ function ClinicianDashboardInner() {
         }
       } catch {
         setPatientsError("Failed to load patients. Check your database connection.");
+        try {
+          const healthRes = await fetch("/api/health");
+          const health = await healthRes.json();
+          if (health.hint) setPatientsHint(health.hint);
+        } catch {
+          setPatientsHint("Make sure DATABASE_URL is set in Vercel environment variables and the database is reachable.");
+        }
       } finally {
         setPatientsLoading(false);
       }
@@ -147,11 +164,14 @@ function ClinicianDashboardInner() {
   if (patientsError) {
     return (
       <AppShell variant="clinician">
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center px-4">
           <AlertCircle className="w-10 h-10 text-red-400" />
           <p className="text-red-500 font-medium">{patientsError}</p>
-          <p className="text-xs text-gray-400 max-w-sm">
-            Make sure <code className="bg-gray-100 px-1 rounded">DATABASE_URL</code> is set in your Vercel environment variables and the database is reachable.
+          <p className="text-xs text-gray-500 max-w-md">
+            {patientsHint ?? "Make sure DATABASE_URL is set in your Vercel environment variables and the database is reachable."}
+          </p>
+          <p className="text-xs text-gray-400 max-w-sm mt-2">
+            If you ran <code className="bg-gray-100 px-1 rounded">enable-rls.sql</code> in Supabase, run <code className="bg-gray-100 px-1 rounded">prisma/disable-rls.sql</code> to restore access.
           </p>
         </div>
       </AppShell>

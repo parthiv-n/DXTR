@@ -29,12 +29,12 @@ export const EXERCISE_GAMES: ExerciseGame[] = [
     targetRepsPerDay: 40,
   },
   {
-    id: "game-4",
-    name: "Reaction Tap",
-    icon: "⚡",
-    primaryMetricKey: "avgReactionTime",
-    primaryMetricLabel: "Avg Reaction Time",
-    primaryMetricUnit: "ms",
+    id: "alien-abduction",
+    name: "Alien Abduction",
+    icon: "🛸",
+    primaryMetricKey: "levelsCompleted",
+    primaryMetricLabel: "Avg Level Reached",
+    primaryMetricUnit: "",
     targetRepsPerDay: 50,
   },
   {

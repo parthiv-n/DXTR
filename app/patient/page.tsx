@@ -6,32 +6,36 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Lock } from "lucide-react";
 import { DailyProgressData } from "@/lib/types";
 
-// 6 game tiles: car-racer is active, rest are grey placeholders
 const gameVisuals = [
   { id: "car-racer", bg: "url('/car_game_thumbnail.png') center/cover", name: "Car Racer", enabled: true },
-  { id: "game-2", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 2", enabled: false },
+  { id: "alien-abduction", bg: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)", name: "Alien Abduction", enabled: true },
   { id: "game-3", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 3", enabled: false },
-  { id: "game-4", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 4", enabled: false },
   { id: "game-5", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 5", enabled: false },
   { id: "game-6", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 6", enabled: false },
+  { id: "game-7", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 7", enabled: false },
 ];
 
 const PATIENT_ID = "edwin-001";
 
 export default function PatientDashboardPage() {
   const [carRacerProgress, setCarRacerProgress] = useState<DailyProgressData | null>(null);
+  const [alienProgress, setAlienProgress] = useState<DailyProgressData | null>(null);
 
   useEffect(() => {
     fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=car-racer`)
       .then((res) => res.json())
       .then((data: DailyProgressData) => setCarRacerProgress(data))
-      .catch((err) => console.error("Error fetching progress:", err));
+      .catch((err) => console.error("Error fetching car-racer progress:", err));
+
+    fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=alien-abduction`)
+      .then((res) => res.json())
+      .then((data: DailyProgressData) => setAlienProgress(data))
+      .catch((err) => console.error("Error fetching alien-abduction progress:", err));
   }, []);
 
   const getProgressForGame = (gameId: string) => {
-    if (gameId === "car-racer" && carRacerProgress) {
-      return carRacerProgress;
-    }
+    if (gameId === "car-racer" && carRacerProgress) return carRacerProgress;
+    if (gameId === "alien-abduction" && alienProgress) return alienProgress;
     return null;
   };
 

@@ -50,10 +50,10 @@ void setup() {
 void loop() {
     IMUData data = imu_read();
 
-    char json[128];
+    char json[160];
     snprintf(json, sizeof(json),
-        "{\"roll\":%.2f,\"pitch\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f}",
-        data.roll, data.pitch, data.gx, data.gy, data.gz);
+        "{\"roll\":%.2f,\"pitch\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsr\":%u}",
+        data.roll, data.pitch, data.gx, data.gy, data.gz, data.fsr);
 
     Serial.println(json);
 

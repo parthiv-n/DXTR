@@ -28,6 +28,18 @@ npm run dev
 
 Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
+## Deploying to Vercel (Supabase)
+
+1. **Set `DATABASE_URL`** in Vercel: Project → Settings → Environment Variables. Use the Supabase **Transaction Pooler** URL (port 6543) and **add `?pgbouncer=true`** at the end:
+   ```
+   postgresql://postgres.PROJECT:PASSWORD@REGION.pooler.supabase.com:6543/postgres?pgbouncer=true
+   ```
+   Without `?pgbouncer=true`, you may see "prepared statement already exists" errors during build.
+
+2. **Seed the database**: Run `prisma/seed.sql` in Supabase Dashboard → SQL Editor.
+
+3. **If you see "Failed to load patients"**: Run `prisma/disable-rls.sql` in Supabase SQL Editor (this restores access if you previously ran `enable-rls.sql`).
+
 ## Project Structure
 
 ```

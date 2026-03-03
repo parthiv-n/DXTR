@@ -67,6 +67,14 @@ export async function GET(
         const successfulReps = allReps.filter((r) => r.success);
         const repsWithReaction = allReps.filter((r) => r.reactionTimeMs !== null);
 
+        const avgLevelCompleted =
+          allReps.length > 0
+            ? Math.round(
+                (allReps.reduce((sum, r) => sum + r.achievedAngle, 0) /
+                  allReps.length) * 10
+              ) / 10
+            : undefined;
+
         return {
           date: dp.date,
           setsCompleted: completedSets.length,
@@ -99,6 +107,9 @@ export async function GET(
               : 0,
           totalReps: allReps.length,
           successfulReps: successfulReps.length,
+          ...(game.primaryMetricKey === "levelsCompleted" && avgLevelCompleted !== undefined
+            ? { avgLevelCompleted }
+            : {}),
         };
       });
 
