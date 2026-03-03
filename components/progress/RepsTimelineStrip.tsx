@@ -8,12 +8,12 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   ReferenceLine,
-  Cell,
+  CartesianGrid,
 } from "recharts";
 
 type Props = {
@@ -44,11 +44,11 @@ export function RepsTimelineStrip({ dailyBuckets, selectedDay, onDayClick }: Pro
   });
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-3 mb-4">
-      <ChartContainer config={chartConfig} className="h-[80px] w-full">
-        <BarChart
+    <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
+      <ChartContainer config={chartConfig} className="h-[120px] w-full">
+        <LineChart
           data={data}
-          margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+          margin={{ top: 10, right: 10, bottom: 0, left: 10 }}
           onClick={(state) => {
             if (state?.activePayload?.[0]) {
               const date = state.activePayload[0].payload.date;
@@ -56,12 +56,14 @@ export function RepsTimelineStrip({ dailyBuckets, selectedDay, onDayClick }: Pro
             }
           }}
         >
+          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 9, fill: "#9CA3AF" }}
+            tick={{ fontSize: 10, fill: "#9CA3AF" }}
             axisLine={false}
             tickLine={false}
             interval={0}
+            dy={10}
           />
           <YAxis hide domain={[0, "auto"]} />
           <ReferenceLine
@@ -69,8 +71,10 @@ export function RepsTimelineStrip({ dailyBuckets, selectedDay, onDayClick }: Pro
             stroke="#6B5344"
             strokeDasharray="4 4"
             strokeOpacity={0.3}
+            label={{ value: "Target", position: "insideTopRight", fill: "#6B5344", fontSize: 10, opacity: 0.5 }}
           />
           <ChartTooltip
+            cursor={false}
             content={
               <ChartTooltipContent
                 labelFormatter={(_, payload) => {
@@ -83,16 +87,15 @@ export function RepsTimelineStrip({ dailyBuckets, selectedDay, onDayClick }: Pro
               />
             }
           />
-          <Bar dataKey="reps" radius={[2, 2, 0, 0]} cursor="pointer">
-            {data.map((entry) => (
-              <Cell
-                key={entry.date}
-                fill={entry.date === selectedDay ? "#c2e1a5" : "#82C785"}
-                fillOpacity={entry.date === selectedDay ? 1 : 0.7}
-              />
-            ))}
-          </Bar>
-        </BarChart>
+          <Line
+            type="monotone"
+            dataKey="reps"
+            stroke="#82C785"
+            strokeWidth={3}
+            dot={{ r: 4, fill: "#82C785", strokeWidth: 0 }}
+            activeDot={{ r: 6, strokeWidth: 0 }}
+          />
+        </LineChart>
       </ChartContainer>
     </div>
   );
