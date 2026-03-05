@@ -45,6 +45,7 @@ void setup() {
 
     // IMU init
     imu_init();
+    imu_calibrate_mag();
 }
 
 void loop() {
