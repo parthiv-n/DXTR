@@ -4,6 +4,8 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include "sensors/imu.h"
+#include "sensors/fsr.h"
+#include "sensors/ultrasound.h"
 
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
@@ -46,15 +48,27 @@ void setup() {
     // IMU init
     imu_init();
     imu_calibrate_mag();
+
+    // FSR init
+    fsr_init();
+
+    // Ultrasound init
+    ultrasound_init();
 }
 
 void loop() {
-    IMUData data = imu_read();
+    IMUData imuData = imu_read();
+    FSRData fsrData = fsr_read();
+    UltrasoundData ultrasoundData = ultrasound_read();
 
-    char json[160];
+    char json[220];
     snprintf(json, sizeof(json),
-        "{\"roll\":%.2f,\"pitch\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsr\":%u}",
-        data.roll, data.pitch, data.gx, data.gy, data.gz, data.fsr);
+        "{\"roll\":%.2f,\"pitch\":%.2f,\"yaw\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsr_resistance\":%.0f,\"fsr_voltage\":%.3f}",
+        imuData.roll, imuData.pitch, imuData.yaw,
+        imuData.gx, imuData.gy, imuData.gz,
+        fsrData.resistance, fsrData.voltage,
+        ultrasoundData.distanceCm,
+        ultrasoundData.outOfRange ? "true" : "false");
 
     Serial.println(json);
 
