@@ -60,7 +60,7 @@ export function GameCardGrid({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 grid-rows-[repeat(6,minmax(0,1fr))] md:grid-rows-[repeat(3,minmax(0,1fr))] xl:grid-rows-[repeat(2,minmax(0,1fr))] gap-3 h-full min-h-0">
         {games.map((game) => {
           const aggregate = filteredAggregates.find((a) => a.gameId === game.id) ?? {
             gameId: game.id,

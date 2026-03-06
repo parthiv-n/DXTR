@@ -86,6 +86,21 @@ export type MissionPlanData = {
 // DAILY MISSION PROGRESS TYPES
 // =============================================
 
+export type AlienRepMetrics = {
+  peakFsr?: number;
+  holdDurationMs?: number;
+  beamActivations?: number;
+  timeToFirstActivationMs?: number;
+  avgBeamOnTimePerCowMs?: number;
+};
+
+export type AlienSetMetrics = {
+  sessionDurationMs: number;
+  cowsMissed: number;
+  forceConsistency: number;
+  timeAboveThresholdPct: number;
+};
+
 export type RepResultData = {
   repNumber: number;         // 1-10
   expectedDirection: string; // "left" | "right"
@@ -93,12 +108,14 @@ export type RepResultData = {
   achievedAngle: number;     // roll angle in degrees
   success: boolean;
   reactionTimeMs: number | null;
+  metrics?: Record<string, unknown>;
 };
 
 export type CompleteSetRequest = {
   patientId: string;
   gameId: string;
   reps: RepResultData[];
+  setMetrics?: Record<string, unknown>;
 };
 
 export type CompleteSetResponse = {
@@ -195,6 +212,11 @@ export type DailySummary = {
   totalReps: number;
   successfulReps: number;
   avgLevelCompleted?: number; // alien-abduction: mean of achievedAngle (level number)
+  avgPeakFsr?: number;
+  avgForceConsistency?: number;
+  avgCowsMissed?: number;
+  avgTimeAboveThresholdPct?: number;
+  avgSessionDurationMs?: number;
 };
 
 export type GameProgressMetrics = {
@@ -210,6 +232,11 @@ export type GameProgressMetrics = {
     totalDaysPlayed: number;
     totalReps: number;
     successfulReps: number;
+    avgPeakFsr?: number;
+    avgForceConsistency?: number;
+    avgCowsMissed?: number;
+    avgTimeAboveThresholdPct?: number;
+    avgSessionDurationMs?: number;
   };
 };
 

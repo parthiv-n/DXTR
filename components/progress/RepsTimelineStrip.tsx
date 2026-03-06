@@ -34,21 +34,29 @@ export function RepsTimelineStrip({ dailyBuckets, selectedDay, onDayClick }: Pro
 
   const data = dailyBuckets.map((d) => {
     const dateObj = new Date(d.date + "T00:00:00");
-    const dayLabel = dateObj.toLocaleDateString("en-US", { weekday: "short", day: "numeric" });
+    // e.g. "Feb 19"
+    const tickLabel = dateObj.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     return {
       date: d.date,
-      label: dayLabel,
+      label: tickLabel,
       reps: d.totalReps,
       target: d.expectedReps,
     };
   });
 
+  const pointCount = data.length;
+  // Show ~7 evenly-spaced ticks regardless of range
+  const xInterval = pointCount > 7 ? Math.round((pointCount - 1) / 6) : 0;
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-      <ChartContainer config={chartConfig} className="h-[120px] w-full">
+    <div className="bg-white rounded-xl border border-gray-200 p-3 h-full min-w-0 overflow-hidden flex flex-col">
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 shrink-0">
+        Daily Reps
+      </p>
+      <ChartContainer config={chartConfig} className="flex-1 w-full min-w-0 min-h-0">
         <LineChart
           data={data}
-          margin={{ top: 10, right: 10, bottom: 0, left: 10 }}
+          margin={{ top: 8, right: 12, bottom: 0, left: 8 }}
           onClick={(state) => {
             if (state?.activePayload?.[0]) {
               const date = state.activePayload[0].payload.date;
@@ -62,16 +70,23 @@ export function RepsTimelineStrip({ dailyBuckets, selectedDay, onDayClick }: Pro
             tick={{ fontSize: 10, fill: "#9CA3AF" }}
             axisLine={false}
             tickLine={false}
-            interval={0}
-            dy={10}
+            interval={xInterval}
+            dy={4}
           />
-          <YAxis hide domain={[0, "auto"]} />
+          <YAxis
+            domain={[0, "auto"]}
+            tick={{ fontSize: 10, fill: "#9CA3AF" }}
+            axisLine={false}
+            tickLine={false}
+            width={32}
+            label={{ value: "Reps", angle: -90, position: "insideLeft", offset: 8, style: { fill: "#9CA3AF", fontSize: 10 } }}
+          />
           <ReferenceLine
             y={dailyTarget}
             stroke="#6B5344"
             strokeDasharray="4 4"
             strokeOpacity={0.3}
-            label={{ value: "Target", position: "insideTopRight", fill: "#6B5344", fontSize: 10, opacity: 0.5 }}
+            label={{ value: "Target", position: "insideTopRight", fill: "#6B5344", fontSize: 9, opacity: 0.5 }}
           />
           <ChartTooltip
             cursor={false}
@@ -91,9 +106,9 @@ export function RepsTimelineStrip({ dailyBuckets, selectedDay, onDayClick }: Pro
             type="monotone"
             dataKey="reps"
             stroke="#82C785"
-            strokeWidth={3}
-            dot={{ r: 4, fill: "#82C785", strokeWidth: 0 }}
-            activeDot={{ r: 6, strokeWidth: 0 }}
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: "#82C785", strokeWidth: 0 }}
+            activeDot={{ r: 5, strokeWidth: 0 }}
           />
         </LineChart>
       </ChartContainer>

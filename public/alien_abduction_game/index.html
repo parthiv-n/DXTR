@@ -180,18 +180,46 @@
     }
   }
 
+  function computeStdDev(arr) {
+    if (arr.length < 2) return 0;
+    var mean = arr.reduce(function(a,b){return a+b;},0) / arr.length;
+    var variance = arr.reduce(function(sum, v) { return sum + (v - mean) * (v - mean); }, 0) / arr.length;
+    return Math.round(Math.sqrt(variance) * 10) / 10;
+  }
+
   async function submitSetResults(levelsCompleted) {
+    var sessionDurationMs = Date.now() - gameStartTime;
+    var forceConsistency = computeStdDev(allPeakFsrs);
+    var timeAboveThresholdPct = beamOnFramesTotal > 0
+      ? Math.round((beamOnFramesAboveThreshold / beamOnFramesTotal) * 1000) / 1000
+      : 0;
+
     var reps = [];
     for (var i = 1; i <= levelsCompleted; i++) {
+      var lm = levelMetrics[i] || {};
       reps.push({
         repNumber: i,
         expectedDirection: "abduct",
         actualDirection: "abduct",
         achievedAngle: i,
         success: true,
-        reactionTimeMs: null
+        reactionTimeMs: lm.timeToFirstActivationMs || null,
+        metrics: {
+          peakFsr: lm.peakFsr || 0,
+          holdDurationMs: lm.holdDurationMs || 0,
+          beamActivations: lm.beamActivations || 0,
+          timeToFirstActivationMs: lm.timeToFirstActivationMs || null,
+          avgBeamOnTimePerCowMs: lm.avgBeamOnTimePerCowMs || null,
+        }
       });
     }
+
+    var setMetrics = {
+      sessionDurationMs: sessionDurationMs,
+      cowsMissed: totalCowsMissed,
+      forceConsistency: forceConsistency,
+      timeAboveThresholdPct: timeAboveThresholdPct
+    };
 
     try {
       var response = await fetch("/api/daily-progress/complete-set", {
@@ -200,7 +228,8 @@
         body: JSON.stringify({
           patientId: patientId,
           gameId: gameIdForApi,
-          reps: reps
+          reps: reps,
+          setMetrics: setMetrics
         })
       });
 
@@ -233,6 +262,22 @@
 
   // FSR threshold — tune when sensor is physically wired
   var FSR_THRESHOLD = 200;
+
+  // ── Metrics instrumentation state ──────────────────────────────────────────
+  var gameStartTime         = 0;
+  var lastFsrValue          = 0;
+  var activationStartTime   = 0;
+  var activationPeakFsr     = 0;
+  var activationsThisLevel  = [];   // { peakFsr, holdDurationMs }
+  var allPeakFsrs           = [];   // all activation peaks across entire game
+  var beamOnFramesTotal     = 0;
+  var beamOnFramesAboveThreshold = 0;
+  var levelStartTime        = 0;
+  var firstActivationTime   = null; // ms timestamp of first activation this level
+  var beamOnTimesThisLevel  = [];   // per-cow beam-on durations
+  var levelMetrics          = {};   // levelNumber -> { peakFsr, holdDurationMs, beamActivations, timeToFirstActivationMs, avgBeamOnTimePerCowMs }
+  var totalCowsMissed       = 0;
+  var wasBeamActive         = false;
 
   // ── USB Serial functions ────────────────────────────────────────────────────
 
@@ -374,13 +419,32 @@
     try {
       var data = JSON.parse(jsonString);
       if (typeof data.fsr === 'number') {
+        lastFsrValue = data.fsr;
         var pressed = data.fsr >= FSR_THRESHOLD;
         if (pressed !== spacePressed) {
+          if (pressed && !spacePressed) {
+            // Activation started
+            activationStartTime = Date.now();
+            activationPeakFsr = data.fsr;
+            if (state === 'playing' && firstActivationTime === null) {
+              firstActivationTime = Date.now();
+            }
+          } else if (!pressed && spacePressed) {
+            // Activation ended
+            if (state === 'playing' && activationStartTime > 0) {
+              var holdMs = Date.now() - activationStartTime;
+              activationsThisLevel.push({ peakFsr: activationPeakFsr, holdDurationMs: holdMs });
+              allPeakFsrs.push(activationPeakFsr);
+            }
+            activationStartTime = 0;
+            activationPeakFsr = 0;
+          }
           spacePressed = pressed;
-          // Also allow FSR press to start game from start screen
           if (pressed && state === 'start' && dxtrReady) {
             startGame();
           }
+        } else if (pressed && state === 'playing') {
+          activationPeakFsr = Math.max(activationPeakFsr, data.fsr);
         }
       }
     } catch (e) {
@@ -505,8 +569,10 @@
   const PATH_LEFT         = UFO_W / 2;
   const PATH_RIGHT        = W - UFO_W / 2;
   const PATH_Y            = H / 3;
-  const COW_W = 40,  COW_H = 40;
+  const COW_W = 80,  COW_H = 80;
+  const BEAM_WIDTH = 22;  // Abduction radius (pixels) — change to widen/narrow the tractor beam
   const COW_SUCK_SPEED = 6;
+  const COW_SUCK_DRIFT = 0.05;  // Fraction of distance toward UFO center per frame (0–1)
   const COW_FADE_SPEED = 0.08;
 
   const COLORS = {
@@ -535,8 +601,8 @@
   // ── Game state ────────────────────────────────────────────────────────────────
   let state = "loading";
 
-  let skyBg, grassOverlay, ufoSheet, beamImg, cowImg;
-  let ufoFrames = [];
+  let skyBg, grassOverlay, beamImg, cowImg;
+  let ufoFrames = [];  // [ufo_idle, ufo_beam1, ufo_beam2]
 
   let ufoPathT      = 0;
   let beamAnimCount = 0;
@@ -571,17 +637,27 @@
     if (e.code === "Space") spacePressed = false;
   });
 
-  // ── Slice spritesheet ─────────────────────────────────────────────────────────
-  function buildUfoFrames(sheet) {
-    const frameW = 66, frameH = 49;
-    for (let i = 0; i < 3; i++) {
-      const oc     = document.createElement("canvas");
-      oc.width     = UFO_W;
-      oc.height    = UFO_H;
-      const oc_ctx = oc.getContext("2d");
-      oc_ctx.drawImage(sheet, i * frameW, 0, frameW, frameH, 0, 0, UFO_W, UFO_H);
-      ufoFrames.push(oc);
+  // ── UFO frames from individual images (idle, beam1, beam2) ───────────────────
+  function setUfoFrames(idle, beam1, beam2) {
+    ufoFrames = [idle, beam1, beam2];
+  }
+
+  // ── Spawn position that doesn't overlap existing cows ─────────────────────────
+  function findNonOverlappingCowPosition() {
+    const allCows = [...targets, ...sucking];
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const x = Math.floor(Math.random() * (W - COW_W));
+      const y = H - COW_H;
+      let overlaps = false;
+      for (const c of allCows) {
+        if (x < c.x + c.w && x + COW_W > c.x && y < c.y + c.h && y + COW_H > c.y) {
+          overlaps = true;
+          break;
+        }
+      }
+      if (!overlaps) return { x, y };
     }
+    return null;  // fallback: use random position if no free spot found
   }
 
   // ── Start / reset ─────────────────────────────────────────────────────────────
@@ -599,6 +675,23 @@
     currentScore    = 0;
     spawnCounter    = 0;
     highestLevelCompleted = 0;
+
+    // Reset metrics
+    gameStartTime        = Date.now();
+    lastFsrValue         = 0;
+    activationStartTime  = 0;
+    activationPeakFsr    = 0;
+    activationsThisLevel = [];
+    allPeakFsrs          = [];
+    beamOnFramesTotal    = 0;
+    beamOnFramesAboveThreshold = 0;
+    levelStartTime       = Date.now();
+    firstActivationTime  = null;
+    beamOnTimesThisLevel = [];
+    levelMetrics         = {};
+    totalCowsMissed      = 0;
+    wasBeamActive        = false;
+
     state = "playing";
   }
 
@@ -634,23 +727,51 @@
     const spawnRate = 90;
     spawnCounter++;
     if (totalCows < 3 && spawnCounter >= spawnRate) {
-      targets.push({ x: Math.floor(Math.random() * (W - COW_W)), y: H - 50, w: COW_W, h: COW_H });
+      const pos = findNonOverlappingCowPosition();
+      if (pos) {
+        targets.push({ x: pos.x, y: pos.y, w: COW_W, h: COW_H, wasUnderUfo: false });
+      }
       spawnCounter = 0;
     }
 
+    // Track beam-on frames for time-above-threshold metric
     if (spacePressed) {
-      const beamW    = beamImg ? beamImg.naturalWidth : 42;
-      const beamLeft = ufo.cx - beamW / 2;
+      beamOnFramesTotal++;
+      if (lastFsrValue >= FSR_THRESHOLD) beamOnFramesAboveThreshold++;
+    }
+
+    // Cows that were under the UFO (beam off) and UFO has passed over: disappear and respawn
+    var ufoLeft = ufo.left, ufoRight = ufo.left + UFO_W;
+    var toRespawn = 0;
+    targets = targets.filter((t) => {
+      var overlap = t.x < ufoRight && t.x + t.w > ufoLeft;
+      if (overlap && !spacePressed) t.wasUnderUfo = true;
+      if (!overlap && t.wasUnderUfo) {
+        totalCowsMissed++;
+        toRespawn++;
+        return false;
+      }
+      return true;
+    });
+    for (var r = 0; r < toRespawn; r++) {
+      const pos = findNonOverlappingCowPosition();
+      if (pos) {
+        targets.push({ x: pos.x, y: pos.y, w: COW_W, h: COW_H, wasUnderUfo: false });
+      }
+    }
+
+    if (spacePressed) {
+      const beamLeft = ufo.cx - BEAM_WIDTH / 2;
       const beamTop  = ufo.bottom;
       const beamH    = H - ufo.bottom;
 
       targets = targets.filter((t) => {
         const hit =
-          t.x < beamLeft + beamW &&
+          t.x < beamLeft + BEAM_WIDTH &&
           t.x + t.w > beamLeft &&
           t.y < beamTop + beamH &&
           t.y + t.h > beamTop;
-        if (hit) sucking.push({ x: t.x, y: t.y, w: t.w, h: t.h });
+        if (hit) sucking.push({ x: t.x, y: t.y, w: t.w, h: t.h, enterBeamTime: Date.now() });
         return !hit;
       });
     }
@@ -661,6 +782,9 @@
       if (cow.fading) {
         cow.alpha -= COW_FADE_SPEED;
         if (cow.alpha <= 0) {
+          if (cow.enterBeamTime) {
+            beamOnTimesThisLevel.push(Date.now() - cow.enterBeamTime);
+          }
           currentScore++;
           score++;
           return false;
@@ -668,6 +792,8 @@
         return true;
       }
       cow.y -= COW_SUCK_SPEED;
+      var cowCx = cow.x + cow.w / 2;
+      cow.x += (ufo.cx - cowCx) * COW_SUCK_DRIFT;
       const cowRight = cow.x + cow.w, cowBottom = cow.y + cow.h;
       if (cow.x < ufoRect.right && cowRight > ufoRect.left && cow.y < ufoRect.bottom && cowBottom > ufoRect.top) {
         cow.fading = true;
@@ -686,12 +812,30 @@
   }
 
   function advanceLevel() {
+    // Aggregate metrics for the level just completed
+    var peaks = activationsThisLevel.map(function(a) { return a.peakFsr; });
+    var holds = activationsThisLevel.map(function(a) { return a.holdDurationMs; });
+    levelMetrics[currentLevel] = {
+      peakFsr: peaks.length > 0 ? Math.max.apply(null, peaks) : 0,
+      holdDurationMs: holds.length > 0 ? Math.round(holds.reduce(function(a,b){return a+b;},0) / holds.length) : 0,
+      beamActivations: activationsThisLevel.length,
+      timeToFirstActivationMs: firstActivationTime !== null ? firstActivationTime - levelStartTime : null,
+      avgBeamOnTimePerCowMs: beamOnTimesThisLevel.length > 0
+        ? Math.round(beamOnTimesThisLevel.reduce(function(a,b){return a+b;},0) / beamOnTimesThisLevel.length)
+        : null,
+    };
+
     highestLevelCompleted = currentLevel;
     currentLevel++;
     if (currentLevel <= 10) {
       currentScore    = 0;
       abductionTarget = 10 * currentLevel;
       countdownTimer  = 60;
+      // Reset per-level tracking
+      activationsThisLevel = [];
+      levelStartTime       = Date.now();
+      firstActivationTime  = null;
+      beamOnTimesThisLevel = [];
     } else {
       onVictory();
     }
@@ -812,10 +956,10 @@
     if (beamActive) {
       beamAnimCount++;
       const fi = 1 + Math.floor(beamAnimCount / 8) % 2;
-      if (ufoFrames[fi]) ctx.drawImage(ufoFrames[fi], ufo.left, ufo.top);
+      if (ufoFrames[fi]) ctx.drawImage(ufoFrames[fi], ufo.left, ufo.top, UFO_W, UFO_H);
     } else {
       beamAnimCount = 0;
-      if (ufoFrames[0]) ctx.drawImage(ufoFrames[0], ufo.left, ufo.top);
+      if (ufoFrames[0]) ctx.drawImage(ufoFrames[0], ufo.left, ufo.top, UFO_W, UFO_H);
     }
 
     for (const t of targets) {
@@ -878,14 +1022,20 @@
     state = "loading"; draw();
     const skyOptions = ["greysky.png", "lightningsky.png", "nightmoonsky.png", "purplesky.png"];
     const chosenSky  = skyOptions[Math.floor(Math.random() * skyOptions.length)];
-    [skyBg, grassOverlay, ufoSheet, beamImg, cowImg] = await Promise.all([
+    const [sky, grass, ufoIdle, ufoBeam1, ufoBeam2, beam, cow] = await Promise.all([
       loadImage(chosenSky),
       loadImage("grass_background_transparent_sky.png"),
-      loadImage("animation/ufo_spritesheet.png"),
+      loadImage("animation/ufo_idle.png"),
+      loadImage("animation/ufo_beam1.png"),
+      loadImage("animation/ufo_beam2.png"),
       loadImage("animation/tractorbeam.png"),
       loadImage("cow.png"),
     ]);
-    if (ufoSheet) buildUfoFrames(ufoSheet);
+    skyBg = sky;
+    grassOverlay = grass;
+    beamImg = beam;
+    cowImg = cow;
+    if (ufoIdle && ufoBeam1 && ufoBeam2) setUfoFrames(ufoIdle, ufoBeam1, ufoBeam2);
     // Assets loaded. Connection overlay is already visible and handles
     // the transition into the game via launchGame().
   }
