@@ -77,7 +77,7 @@ export function GameProgressCard({ game, aggregate, isExpanded, onClick, cardRef
           onClick();
         }
       }}
-      className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 cursor-pointer transition-all hover:border-dxtr-teal/40 focus-visible:ring-2 focus-visible:ring-dxtr-teal focus-visible:ring-offset-2 outline-none"
+      className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 cursor-pointer transition-all hover:border-dxtr-teal/40 focus-visible:ring-2 focus-visible:ring-dxtr-teal focus-visible:ring-offset-2 outline-none min-h-0 overflow-hidden flex flex-col"
     >
       {/* Top: icon + name + status */}
       <div className="flex items-center justify-between mb-3">

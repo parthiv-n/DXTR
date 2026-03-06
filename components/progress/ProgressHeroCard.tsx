@@ -72,7 +72,7 @@ export function ProgressHeroCard({
   rangeDays,
 }: Props) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-4 flex flex-col sm:flex-row items-center gap-6">
+    <div className="bg-white rounded-2xl border border-gray-200 p-5 h-full flex flex-col sm:flex-row items-center gap-6">
       {/* Circular progress */}
       <div className="flex flex-col items-center gap-1">
         <CircularProgress pct={completionPct} />

@@ -195,9 +195,9 @@ function ClinicianDashboardInner() {
   return (
     <AppShell variant="clinician">
       <TooltipProvider>
-        <div className="max-w-6xl mx-auto pb-20 flex flex-col h-[calc(100vh-5rem)]">
-          {/* TOP HALF: adherence overview */}
-          <div className="shrink-0">
+        <div className="max-w-6xl mx-auto flex flex-col h-[calc(100dvh-6rem)] overflow-hidden pb-14">
+          {/* TOP HALF: timeline + summary side by side */}
+          <div className="flex-1 flex flex-col min-h-0 shrink-0">
             <ProgressOverviewHeader
               patients={patients}
               selectedPatientId={selectedPatientId}
@@ -222,34 +222,36 @@ function ClinicianDashboardInner() {
                 {error}
               </div>
             ) : progress ? (
-              <>
-                <RepsTimelineStrip
-                  dailyBuckets={progress.dailyBuckets}
-                  selectedDay={selectedDay}
-                  onDayClick={handleDayClick}
-                />
-                <ProgressHeroCard
-                  completionPct={progress.completionPct}
-                  totalReps={progress.totalReps}
-                  expectedReps={progress.expectedReps}
-                  streak={progress.streak}
-                  missedDays={progress.missedDays}
-                  weeklyBreakdown={progress.weeklyBreakdown}
-                  rangeDays={rangeDays}
-                />
-              </>
+              <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0 mt-2">
+                <div className="flex-1 min-w-0">
+                  <RepsTimelineStrip
+                    dailyBuckets={progress.dailyBuckets}
+                    selectedDay={selectedDay}
+                    onDayClick={handleDayClick}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <ProgressHeroCard
+                    completionPct={progress.completionPct}
+                    totalReps={progress.totalReps}
+                    expectedReps={progress.expectedReps}
+                    streak={progress.streak}
+                    missedDays={progress.missedDays}
+                    weeklyBreakdown={progress.weeklyBreakdown}
+                    rangeDays={rangeDays}
+                  />
+                </div>
+              </div>
             ) : null}
           </div>
 
-          {/* Divider */}
-          <hr className="border-gray-200 my-2" />
-
-          {/* BOTTOM HALF: game cards / drill-in */}
-          <div className="flex-1 overflow-y-auto pt-2">
+          {/* BOTTOM HALF: game cards for deeper analytics */}
+          <div className="flex-1 min-h-0 pt-4 overflow-hidden flex flex-col">
             {loading && !progress ? (
               <SkeletonGrid />
             ) : progress ? (
-              <GameCardGrid
+              <div className="flex-1 min-h-0">
+                <GameCardGrid
                 games={EXERCISE_GAMES}
                 progress={progress}
                 expandedGameId={expandedGameId}
@@ -257,6 +259,7 @@ function ClinicianDashboardInner() {
                 patientId={selectedPatientId}
                 selectedDay={selectedDay}
               />
+              </div>
             ) : (
               <div className="text-center text-gray-400 py-10">
                 <p className="text-sm">No exercise data in this range yet.</p>

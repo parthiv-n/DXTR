@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Patient {
@@ -142,6 +143,7 @@ model GameSet {
   completed        Boolean        @default(false)
   totalReps        Int            @default(10)
   achievedReps     Int            @default(0)
+  metrics          String?        // JSON: game-specific set-level metrics (alien-abduction etc.)
   dailyProgress    DailyProgress  @relation(fields: [dailyProgressId], references: [id])
   reps             RepResult[]
 
@@ -157,6 +159,7 @@ model RepResult {
   achievedAngle     Float    // roll angle in degrees at time of dodge
   success           Boolean  @default(false)
   reactionTimeMs    Int?     // ms from prompt shown to dodge triggered
+  metrics           String?  // JSON: game-specific per-rep metrics (alien-abduction etc.)
   gameSet           GameSet  @relation(fields: [gameSetId], references: [id])
 
   @@unique([gameSetId, repNumber])

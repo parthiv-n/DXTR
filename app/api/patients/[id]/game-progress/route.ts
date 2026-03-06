@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db/prisma";
-import { GameProgressMetrics, DailySummary } from "@/lib/types";
+import { GameProgressMetrics, DailySummary, AlienSetMetrics, AlienRepMetrics } from "@/lib/types";
+
+function avg(nums: number[]): number {
+  return nums.length > 0 ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+}
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
 
 /**
  * GET /api/patients/[id]/game-progress?gameId=car-racer
@@ -42,6 +49,8 @@ export async function GET(
         },
       },
     });
+
+    const isAlien = gameId === "alien-abduction";
 
     // Aggregate per-day summaries
     const dailySummaries: DailySummary[] = allProgress.map((dp) => {
@@ -92,7 +101,7 @@ export async function GET(
             ) / 10
           : undefined;
 
-      return {
+      const summary: DailySummary = {
         date: dp.date,
         setsCompleted: completedSets.length,
         setsTarget: dp.setsTarget,
@@ -103,22 +112,53 @@ export async function GET(
         avgReactionTimeMs,
         totalReps: allReps.length,
         successfulReps: successfulReps.length,
-        ...(gameId === "alien-abduction" && avgLevelCompleted !== undefined
+        ...(isAlien && avgLevelCompleted !== undefined
           ? { avgLevelCompleted }
           : {}),
       };
+
+      if (isAlien) {
+        const setMetricsList = completedSets
+          .map((s) => {
+            try { return s.metrics ? JSON.parse(s.metrics) as AlienSetMetrics : null; }
+            catch { return null; }
+          })
+          .filter((m): m is AlienSetMetrics => m !== null);
+
+        const repMetricsList = allReps
+          .map((r) => {
+            try { return r.metrics ? JSON.parse(r.metrics) as AlienRepMetrics : null; }
+            catch { return null; }
+          })
+          .filter((m): m is AlienRepMetrics => m !== null);
+
+        if (setMetricsList.length > 0) {
+          summary.avgCowsMissed = round1(avg(setMetricsList.map((m) => m.cowsMissed)));
+          summary.avgForceConsistency = round1(avg(setMetricsList.map((m) => m.forceConsistency)));
+          summary.avgTimeAboveThresholdPct = round1(avg(setMetricsList.map((m) => m.timeAboveThresholdPct)) * 100);
+          summary.avgSessionDurationMs = Math.round(avg(setMetricsList.map((m) => m.sessionDurationMs)));
+        }
+
+        const peaks = repMetricsList.map((m) => m.peakFsr).filter((v): v is number => v != null);
+        if (peaks.length > 0) {
+          summary.avgPeakFsr = round1(avg(peaks));
+        }
+      }
+
+      return summary;
     });
 
     // Compute overall stats across all days
     const allRepsFlat = allProgress.flatMap((dp) =>
       dp.sets.flatMap((s) => s.reps)
     );
+    const allSetsFlat = allProgress.flatMap((dp) => dp.sets);
     const allLeftReps = allRepsFlat.filter((r) => r.expectedDirection === "left");
     const allRightReps = allRepsFlat.filter((r) => r.expectedDirection === "right");
     const allSuccessful = allRepsFlat.filter((r) => r.success);
     const allWithReaction = allRepsFlat.filter((r) => r.reactionTimeMs !== null);
 
-    const overallStats = {
+    const overallStats: GameProgressMetrics["overallStats"] = {
       avgLeftAngle:
         allLeftReps.length > 0
           ? Math.round(
@@ -154,6 +194,34 @@ export async function GET(
       totalReps: allRepsFlat.length,
       successfulReps: allSuccessful.length,
     };
+
+    if (isAlien) {
+      const allSetMetrics = allSetsFlat
+        .map((s) => {
+          try { return s.metrics ? JSON.parse(s.metrics) as AlienSetMetrics : null; }
+          catch { return null; }
+        })
+        .filter((m): m is AlienSetMetrics => m !== null);
+
+      const allRepMetrics = allRepsFlat
+        .map((r) => {
+          try { return r.metrics ? JSON.parse(r.metrics) as AlienRepMetrics : null; }
+          catch { return null; }
+        })
+        .filter((m): m is AlienRepMetrics => m !== null);
+
+      if (allSetMetrics.length > 0) {
+        overallStats.avgCowsMissed = round1(avg(allSetMetrics.map((m) => m.cowsMissed)));
+        overallStats.avgForceConsistency = round1(avg(allSetMetrics.map((m) => m.forceConsistency)));
+        overallStats.avgTimeAboveThresholdPct = round1(avg(allSetMetrics.map((m) => m.timeAboveThresholdPct)) * 100);
+        overallStats.avgSessionDurationMs = Math.round(avg(allSetMetrics.map((m) => m.sessionDurationMs)));
+      }
+
+      const allPeaks = allRepMetrics.map((m) => m.peakFsr).filter((v): v is number => v != null);
+      if (allPeaks.length > 0) {
+        overallStats.avgPeakFsr = round1(avg(allPeaks));
+      }
+    }
 
     const result: GameProgressMetrics = {
       patientId,

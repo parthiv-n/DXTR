@@ -23,8 +23,16 @@ UFO_W, UFO_H = 132, 98
 PATH_LEFT, PATH_RIGHT = UFO_W // 2, WIDTH - UFO_W // 2
 PATH_Y = HEIGHT // 3
 
+# Cow size (used for spawn/respawn)
+COW_W, COW_H = 40, 40
+
+# Abduction radius (pixels) — change to widen/narrow the tractor beam
+BEAM_WIDTH = 22
+
 # How fast a cow slides up the beam (pixels per frame)
 COW_SUCK_SPEED = 6
+# Fraction of distance toward UFO center per frame (0–1) — cows gravitate toward beam center
+COW_SUCK_DRIFT = 0.05
 # Fade-out when cow contacts UFO: alpha decrease per frame (255 = opaque, 0 = invisible)
 COW_FADE_SPEED = 30
 
@@ -48,14 +56,33 @@ grass_overlay = scale_to_cover(
     pygame.image.load("grass_background_transparent_sky.png").convert_alpha(), WIDTH, HEIGHT
 )
 
-sheet = pygame.image.load("animation/ufo_spritesheet.png").convert_alpha()
-ufo_frames = [
-    pygame.transform.scale(sheet.subsurface((i * 66, 0, 66, 49)), (UFO_W, UFO_H))
-    for i in range(3)
-]
+# UFO frames: idle, beam1, beam2 (individual images)
+ufo_idle = pygame.transform.scale(
+    pygame.image.load("animation/ufo_idle.png").convert_alpha(), (UFO_W, UFO_H)
+)
+ufo_beam1 = pygame.transform.scale(
+    pygame.image.load("animation/ufo_beam1.png").convert_alpha(), (UFO_W, UFO_H)
+)
+ufo_beam2 = pygame.transform.scale(
+    pygame.image.load("animation/ufo_beam2.png").convert_alpha(), (UFO_W, UFO_H)
+)
+ufo_frames = [ufo_idle, ufo_beam1, ufo_beam2]
 
 beam_img = pygame.image.load("animation/tractorbeam.png").convert_alpha()
-cow_img = pygame.transform.scale(pygame.image.load("cow.png").convert_alpha(), (40, 40))
+cow_img = pygame.transform.scale(pygame.image.load("cow.png").convert_alpha(), (COW_W, COW_H))
+
+
+def _find_non_overlapping_cow_pos(targets_list, sucking_list):
+    """Return a Rect for a new cow that doesn't overlap any existing cow, or None."""
+    all_rects = [t["rect"] for t in targets_list] + [c["rect"] for c in sucking_list]
+    for _ in range(30):
+        x = random.randint(0, WIDTH - COW_W)
+        y = HEIGHT - COW_H
+        new_rect = pygame.Rect(x, y, COW_W, COW_H)
+        if not any(new_rect.colliderect(r) for r in all_rects):
+            return new_rect
+    return None
+
 
 # --- Helper screens ---
 
@@ -180,23 +207,40 @@ while running:
     target_spawn_rate = 90  # frames between spawns
     target_spawn_counter += 1
     if total_cows < 3 and target_spawn_counter >= target_spawn_rate:
-        target_rect = pygame.Rect(random.randint(0, WIDTH - 40), HEIGHT - 50, 40, 40)
-        targets.append(target_rect)
+        rect = _find_non_overlapping_cow_pos(targets, sucking)
+        if rect:
+            targets.append({'rect': rect, 'was_under_ufo': False})
         target_spawn_counter = 0
+
+    # --- Cows under UFO (beam off) that UFO has passed over: disappear and respawn ---
+    ufo_left = player_rect.left
+    ufo_right = player_rect.right
+    to_respawn = []
+    for t in targets[:]:
+        tr = t['rect']
+        overlap = tr.x < ufo_right and tr.x + tr.w > ufo_left
+        if overlap and not space_pressed:
+            t['was_under_ufo'] = True
+        if not overlap and t['was_under_ufo']:
+            to_respawn.append(t)
+    for t in to_respawn:
+        targets.remove(t)
+        rect = _find_non_overlapping_cow_pos(targets, sucking)
+        if rect:
+            targets.append({'rect': rect, 'was_under_ufo': False})
 
     # --- Beam: detect new cows entering beam and start sucking them ---
     if space_pressed:
-        beam_width = beam_img.get_width()
         beam_rect = pygame.Rect(
-            player_rect.centerx - beam_width // 2,
+            player_rect.centerx - BEAM_WIDTH // 2,
             player_rect.bottom,
-            beam_width,
+            BEAM_WIDTH,
             HEIGHT - player_rect.bottom,
         )
         for target in targets[:]:
-            if beam_rect.colliderect(target):
+            if beam_rect.colliderect(target['rect']):
                 targets.remove(target)
-                sucking.append({'rect': pygame.Rect(target), 'fade': 255})
+                sucking.append({'rect': pygame.Rect(target['rect']), 'fade': 255})
 
     # --- Animate sucking cows upward; fade out on physical contact with UFO ---
     for cow in sucking[:]:
@@ -208,6 +252,8 @@ while running:
                 score += 1
         else:
             cow['rect'].y -= COW_SUCK_SPEED
+            delta = (player_rect.centerx - cow['rect'].centerx) * COW_SUCK_DRIFT
+            cow['rect'].centerx += delta
             if cow['rect'].colliderect(player_rect):
                 cow['fading'] = True
                 cow['fade'] = 255
@@ -239,7 +285,7 @@ while running:
 
     # Idle cows
     for target in targets:
-        screen.blit(cow_img, target)
+        screen.blit(cow_img, target['rect'])
 
     # Sucking cows (animate upward along beam; fade out on contact)
     for cow in sucking:
