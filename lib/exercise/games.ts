@@ -3,7 +3,7 @@ import { ExerciseGame } from "./types";
 export const EXERCISE_GAMES: ExerciseGame[] = [
   {
     id: "alien-abduction",
-    name: "Thumb adduction - 🛸 Alien Abduction",
+    name: "Thumb adduction - Alien Abduction",
     icon: "🛸",
     primaryMetricKey: "levelsCompleted",
     primaryMetricLabel: "Avg Level Reached",
@@ -30,7 +30,7 @@ export const EXERCISE_GAMES: ExerciseGame[] = [
   },
   {
     id: "fossil-dusting",
-    name: "Wrist radial and ulnar deviation - 🦖 Fossil Dusting",
+    name: "Wrist radial and ulnar deviation - Fossil Dusting",
     icon: "🦖",
     primaryMetricKey: "avgROM",
     primaryMetricLabel: "Avg Range of Motion",
@@ -39,7 +39,7 @@ export const EXERCISE_GAMES: ExerciseGame[] = [
   },
   {
     id: "car-racer",
-    name: "Wrist pronation and supination - 🏎️ Car Racer",
+    name: "Wrist pronation and supination - Car Racer",
     icon: "🏎️",
     primaryMetricKey: "avgAngle",
     primaryMetricLabel: "Avg Dodge Angle",
