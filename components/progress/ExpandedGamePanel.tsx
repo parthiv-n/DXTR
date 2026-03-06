@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ExerciseGame, GameAggregate, DayBucket } from "@/lib/exercise/types";
-import { GameConfigData } from "@/lib/types";
+import { GameConfigData, GameProgressMetrics } from "@/lib/types";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ChartContainer,
@@ -42,6 +42,7 @@ const difficultyChartConfig: ChartConfig = {
 
 export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId, className }: Props) {
   const isCarRacer = game.id === "car-racer";
+  const isAlienAbduction = game.id === "alien-abduction";
 
   const outcomeChartConfig: ChartConfig = {
     metric: { label: game.primaryMetricLabel, color: "#c2e1a5" },
@@ -165,6 +166,8 @@ export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId, cl
         <div className="lg:w-[340px] shrink-0">
           {isCarRacer ? (
             <CarRacerSettings patientId={patientId} />
+          ) : isAlienAbduction ? (
+            <AlienAbductionSettings patientId={patientId} />
           ) : (
             <div className="bg-gray-50 rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -471,6 +474,242 @@ function CarRacerSettings({ patientId }: { patientId: string }) {
           Settings saved. Changes apply on next session.
         </p>
       )}
+    </div>
+  );
+}
+
+function AlienAbductionSettings({ patientId }: { patientId: string }) {
+  const [gameConfig, setGameConfig] = useState<GameConfigData | null>(null);
+  const [metrics, setMetrics] = useState<GameProgressMetrics["overallStats"] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [editFsrThreshold, setEditFsrThreshold] = useState(200);
+  const [editAutoProgression, setEditAutoProgression] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [configRes, progressRes] = await Promise.all([
+        fetch(`/api/patients/${patientId}/game-config?gameId=alien-abduction`),
+        fetch(`/api/patients/${patientId}/game-progress?gameId=alien-abduction`),
+      ]);
+      if (configRes.ok) {
+        const data: GameConfigData = await configRes.json();
+        setGameConfig(data);
+        setEditFsrThreshold(data.difficultyParams?.fsrThreshold ?? 200);
+        setEditAutoProgression(data.autoProgressionEnabled);
+      }
+      if (progressRes.ok) {
+        const data: GameProgressMetrics = await progressRes.json();
+        setMetrics(data.overallStats);
+      }
+    } catch (err) {
+      console.error("Failed to fetch alien config/metrics:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [patientId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveSuccess(false);
+    try {
+      const res = await fetch(`/api/patients/${patientId}/game-config`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gameId: "alien-abduction",
+          difficultyParams: { fsrThreshold: editFsrThreshold },
+          autoProgressionEnabled: editAutoProgression,
+        }),
+      });
+      if (res.ok) {
+        const updated: GameConfigData = await res.json();
+        setGameConfig(updated);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2000);
+      }
+    } catch (err) {
+      console.error("Failed to save alien config:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const configDirty = gameConfig && (
+    editFsrThreshold !== (gameConfig.difficultyParams?.fsrThreshold ?? 200) ||
+    editAutoProgression !== gameConfig.autoProgressionEnabled
+  );
+
+  const progressToNext = gameConfig?.consecutiveGoodSets ?? 0;
+  const goodSetsNeeded = 5;
+
+  const lastAdjLabel = (() => {
+    if (!gameConfig?.lastAdjustmentAt) return "No adjustments yet";
+    const d = new Date(gameConfig.lastAdjustmentAt);
+    const days = Math.round((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24));
+    const dir = gameConfig.lastAdjustmentDirection === "up" ? "Increased" : "Decreased";
+    if (days === 0) return `${dir} today`;
+    if (days === 1) return `${dir} yesterday`;
+    return `${dir} ${days}d ago`;
+  })();
+
+  const AdjIcon = gameConfig?.lastAdjustmentDirection === "up"
+    ? TrendingUp
+    : gameConfig?.lastAdjustmentDirection === "down"
+    ? TrendingDown
+    : Minus;
+
+  if (loading) {
+    return (
+      <div className="bg-gray-50 rounded-lg p-5 animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-3/4 mb-4" />
+        <div className="h-8 bg-gray-200 rounded w-full mb-3" />
+        <div className="h-8 bg-gray-200 rounded w-full mb-3" />
+        <div className="h-8 bg-gray-200 rounded w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gray-50 rounded-lg p-4 space-y-4">
+      <h3 className="text-sm font-semibold text-dxtr-teal">
+        Alien Abduction — Configuration
+      </h3>
+
+      {/* Calibration badge */}
+      <div className="flex items-center gap-2">
+        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+          gameConfig?.calibrationComplete
+            ? "bg-green-100 text-green-700"
+            : "bg-amber-100 text-amber-700"
+        }`}>
+          {gameConfig?.calibrationComplete
+            ? "Calibrated"
+            : `Calibrating ${gameConfig?.calibrationSetsCompleted ?? 0}/3`}
+        </span>
+      </div>
+
+      {/* FSR Threshold */}
+      <div className="space-y-3">
+        <div>
+          <label className="text-xs text-gray-500 block mb-0.5">FSR Threshold</label>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={50}
+              max={1023}
+              step={10}
+              value={editFsrThreshold}
+              onChange={(e) => setEditFsrThreshold(Number(e.target.value))}
+              className="border border-gray-200 rounded px-2 py-1 text-sm text-center w-20"
+            />
+            <span className="text-xs text-gray-400">raw ADC</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Auto-progression toggle */}
+      <div className="flex items-center gap-3 pt-1">
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={editAutoProgression}
+            onChange={(e) => setEditAutoProgression(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-9 h-5 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-dxtr-teal" />
+        </label>
+        <span className="text-xs text-gray-600">Auto-progression</span>
+      </div>
+
+      {/* Adaptive status */}
+      <div className="space-y-2 border-t border-gray-200 pt-3">
+        <div className="flex items-center gap-2">
+          <Activity className="w-3.5 h-3.5 text-dxtr-teal" />
+          <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+            Adaptive Status
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <span className="text-gray-400 block">Next level</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                <div className="bg-dxtr-teal rounded-full h-1.5 transition-all" style={{ width: `${(progressToNext / goodSetsNeeded) * 100}%` }} />
+              </div>
+              <span className="text-gray-500 font-medium">{progressToNext}/{goodSetsNeeded}</span>
+            </div>
+          </div>
+          <div>
+            <span className="text-gray-400 block">Last adjustment</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <AdjIcon className={`w-3 h-3 ${
+                gameConfig?.lastAdjustmentDirection === "up" ? "text-green-500" :
+                gameConfig?.lastAdjustmentDirection === "down" ? "text-amber-500" :
+                "text-gray-400"
+              }`} />
+              <span className="text-gray-600">{lastAdjLabel}</span>
+            </div>
+          </div>
+          <div>
+            <span className="text-gray-400 block">Struggle counter</span>
+            <span className="text-gray-600 font-medium">{gameConfig?.consecutiveStruggleSets ?? 0}/2</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Alien-specific metrics */}
+      {metrics && (
+        <div className="space-y-2 border-t border-gray-200 pt-3">
+          <div className="flex items-center gap-2">
+            <Activity className="w-3.5 h-3.5 text-purple-500" />
+            <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+              Performance Metrics
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+            <MetricCell label="Avg Peak FSR" value={metrics.avgPeakFsr ?? "—"} />
+            <MetricCell label="Force Consistency" value={metrics.avgForceConsistency != null ? `±${metrics.avgForceConsistency}` : "—"} />
+            <MetricCell label="Cows Missed" value={metrics.avgCowsMissed ?? "—"} unit="/set" />
+            <MetricCell label="Time Above Threshold" value={metrics.avgTimeAboveThresholdPct != null ? `${metrics.avgTimeAboveThresholdPct}%` : "—"} />
+            <MetricCell label="Avg Session" value={metrics.avgSessionDurationMs != null ? `${Math.round(metrics.avgSessionDurationMs / 1000)}s` : "—"} />
+            <MetricCell label="Total Sets" value={metrics.totalSetsCompleted} />
+          </div>
+        </div>
+      )}
+
+      {/* Save */}
+      <button
+        onClick={handleSave}
+        disabled={saving || !configDirty}
+        className={`w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+          configDirty
+            ? "bg-dxtr-teal text-white hover:bg-dxtr-teal/90"
+            : "bg-gray-200 text-gray-400 cursor-not-allowed"
+        }`}
+      >
+        <Save className="w-3.5 h-3.5" />
+        {saving ? "Saving..." : saveSuccess ? "Saved!" : "Save Settings"}
+      </button>
+      {saveSuccess && (
+        <p className="text-xs text-green-600 text-center">
+          Settings saved. Changes apply on next session.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MetricCell({ label, value, unit }: { label: string; value: string | number; unit?: string }) {
+  return (
+    <div>
+      <span className="text-gray-400 block">{label}</span>
+      <span className="text-gray-700 font-medium">
+        {value}{unit && <span className="text-gray-400 font-normal">{unit}</span>}
+      </span>
     </div>
   );
 }

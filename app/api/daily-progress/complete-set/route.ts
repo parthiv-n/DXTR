@@ -14,7 +14,7 @@ import { AdaptiveRepData } from "@/lib/difficulty/types";
 export async function POST(request: NextRequest) {
   try {
     const body: CompleteSetRequest = await request.json();
-    const { patientId, gameId, reps } = body;
+    const { patientId, gameId, reps, setMetrics } = body;
 
     if (!patientId || !gameId || !reps || reps.length === 0) {
       return NextResponse.json(
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
         completedAt: new Date(),
         totalReps: reps.length,
         achievedReps: reps.filter((r) => r.success).length,
+        metrics: setMetrics ? JSON.stringify(setMetrics) : null,
         reps: {
           create: reps.map((r) => ({
             repNumber: r.repNumber,
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
             achievedAngle: r.achievedAngle,
             success: r.success,
             reactionTimeMs: r.reactionTimeMs,
+            metrics: r.metrics ? JSON.stringify(r.metrics) : null,
           })),
         },
       },
