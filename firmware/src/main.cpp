@@ -4,7 +4,8 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include "sensors/imu.h"
-#include "sensors/fsr.h"
+#include "sensors/fsr_button.h"
+#include "sensors/fsr_grip.h"
 #include "sensors/ultrasound.h"
 
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -49,8 +50,11 @@ void setup() {
     imu_init();
     imu_calibrate_mag();
 
-    // FSR init
-    fsr_init();
+    // FSR Button init
+    fsrbutton_init();
+
+    // FSR Grip init
+    fsrgrip_init();
 
     // Ultrasound init
     ultrasound_init();
@@ -58,15 +62,17 @@ void setup() {
 
 void loop() {
     IMUData imuData = imu_read();
-    FSRData fsrData = fsr_read();
+    FSRButtonData fsrbuttonData = fsrbutton_read();
+    FSRGripData fsrgripData = fsrgrip_read();
     UltrasoundData ultrasoundData = ultrasound_read();
 
     char json[220];
     snprintf(json, sizeof(json),
-        "{\"roll\":%.2f,\"pitch\":%.2f,\"yaw\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsr_resistance\":%.0f,\"fsr_voltage\":%.3f,\"distance\":%.2f,\"out_of_range\":%s}",
+        "{\"roll\":%.2f,\"pitch\":%.2f,\"yaw\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsrbutton_resistance\":%.0f,\"fsrbutton_voltage\":%.3f,\"fsrgrip_resistance\":%.0f,\"fsrgrip_voltage\":%.3f,\"distance\":%.2f,\"out_of_range\":%s}",
         imuData.roll, imuData.pitch, imuData.yaw,
         imuData.gx, imuData.gy, imuData.gz,
-        fsrData.resistance, fsrData.voltage,
+        fsrbuttonData.resistance, fsrbuttonData.voltage,
+        fsrgripData.resistance, fsrgripData.voltage,
         ultrasoundData.distanceCm,
         ultrasoundData.outOfRange ? "true" : "false");
 
@@ -77,5 +83,5 @@ void loop() {
         pCharacteristic->notify();
     }
 
-    delay(20);
+    delay(100);
 }

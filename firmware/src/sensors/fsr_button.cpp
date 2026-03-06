@@ -1,4 +1,4 @@
-#include "fsr.h"
+#include "fsr_button.h"
 #include <Arduino.h>
 
 #define FSR_PIN     34
@@ -6,13 +6,13 @@
 #define R_FIXED     22000.0f
 #define ADC_MAX     4095
 
-void fsr_init() {
+void fsrbutton_init() {
     analogReadResolution(12);
     Serial.println("FSR initialised");
 }
 
-FSRData fsr_read() {
-    FSRData data;
+FSRButtonData fsrbutton_read() {
+    FSRButtonData data;
 
     data.adcValue = analogRead(FSR_PIN);
 
