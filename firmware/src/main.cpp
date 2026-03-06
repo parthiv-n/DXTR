@@ -63,7 +63,7 @@ void loop() {
 
     char json[220];
     snprintf(json, sizeof(json),
-        "{\"roll\":%.2f,\"pitch\":%.2f,\"yaw\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsr_resistance\":%.0f,\"fsr_voltage\":%.3f}",
+        "{\"roll\":%.2f,\"pitch\":%.2f,\"yaw\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsr_resistance\":%.0f,\"fsr_voltage\":%.3f,\"distance\":%.2f,\"out_of_range\":%s}",
         imuData.roll, imuData.pitch, imuData.yaw,
         imuData.gx, imuData.gy, imuData.gz,
         fsrData.resistance, fsrData.voltage,
