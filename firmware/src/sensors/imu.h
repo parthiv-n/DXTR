@@ -2,5 +2,5 @@
 #include "sensors.h"
 
 void imu_init();
-void imu_calibrate_mag();
+void imu_zero();
 IMUData imu_read();

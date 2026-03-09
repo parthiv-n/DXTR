@@ -3,7 +3,7 @@
 typedef struct {
     float roll;
     float pitch;
-    float yaw;
+    float deviation;
     float gx, gy, gz;
     float mx, my, mz;
 } IMUData;
