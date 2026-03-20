@@ -1,18 +1,18 @@
-#include "fsr_button.h"
+#include "fsr_button2.h"
 #include <Arduino.h>
 
-#define FSR_PIN     33
+#define FSR_PIN     39
 #define VREF        3.3f
-#define R_FIXED     10000.0f
+#define R_FIXED     22000.0f
 #define ADC_MAX     4095
 
-void fsrgrip_init() {
+void fsrbutton2_init() {
     analogReadResolution(12);
-    Serial.println("FSR Grip initialised");
+    Serial.println("FSR 2 initialised");
 }
 
-FSRGripData fsrgrip_read() {
-    FSRGripData data;
+FSRButton2Data fsrbutton2_read() {
+    FSRButton2Data data;
 
     data.adcValue = analogRead(FSR_PIN);
 

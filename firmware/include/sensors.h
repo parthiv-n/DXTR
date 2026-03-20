@@ -18,6 +18,12 @@ typedef struct {
     int adcValue;        // raw ADC reading 0-4095
     float voltage;       // converted voltage 0-3.3V
     float resistance;    // calculated FSR resistance in ohms
+} FSRButton2Data;
+
+typedef struct {
+    int adcValue;        // raw ADC reading 0-4095
+    float voltage;       // converted voltage 0-3.3V
+    float resistance;    // calculated FSR resistance in ohms
 } FSRGripData;
 
 typedef struct {
