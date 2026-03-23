@@ -337,6 +337,30 @@
 
   // ── BLE functions ───────────────────────────────────────────────────────────
 
+  async function tryAutoConnectBLE() {
+    if (!('bluetooth' in navigator) || !navigator.bluetooth.getDevices) return false;
+    try {
+      var devices = await navigator.bluetooth.getDevices();
+      var dxtr = devices.find(function(d) { return d.name && d.name.startsWith('DXTR'); });
+      if (!dxtr) return false;
+      bleDevice = dxtr;
+      bleDevice.addEventListener('gattserverdisconnected', onBLEDisconnected);
+      var server = await bleDevice.gatt.connect();
+      var service = await server.getPrimaryService(BLE_SERVICE_UUID);
+      bleCharacteristic = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
+      await bleCharacteristic.startNotifications();
+      bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
+      connectionType = 'ble';
+      esp32Connected = true;
+      updateDeviceStatus('connected');
+      return true;
+    } catch (e) {
+      bleDevice = null;
+      bleCharacteristic = null;
+      return false;
+    }
+  }
+
   async function connectESP32BLE() {
     if (!('bluetooth' in navigator)) {
       return false;
@@ -386,6 +410,13 @@
     connectionType = null;
     bleCharacteristic = null;
     updateDeviceStatus('disconnected');
+    setTimeout(async function() {
+      var ok = await tryAutoConnectBLE();
+      if (ok) {
+        updateDeviceStatus('connected');
+        esp32Connected = true;
+      }
+    }, 1000);
   }
 
   // ── Shared disconnect ───────────────────────────────────────────────────────
@@ -538,6 +569,23 @@
   window._skipConnection = function () {
     launchGame();
   };
+
+  (async function initConnection() {
+    var status = document.getElementById('overlay-status');
+    status.className = 'connecting';
+    status.textContent = 'Looking for your DXTR controller...';
+    setOverlayButtonsDisabled(true);
+
+    var ok = await tryAutoConnectBLE();
+    if (ok) {
+      status.className = 'connected';
+      status.textContent = 'Controller connected!';
+      setTimeout(launchGame, 600);
+    } else {
+      status.textContent = '';
+      setOverlayButtonsDisabled(false);
+    }
+  })();
 
   async function launchGame() {
     if (gameStarted) return;

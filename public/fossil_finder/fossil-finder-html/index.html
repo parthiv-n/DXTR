@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DXTR Fossil Finder</title>
+  <link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game-canvas" width="1920" height="1080"></canvas>
+
+    <!-- Main Menu -->
+    <div id="screen-main-menu" class="screen-overlay">
+      <div class="menu-content">
+        <button id="btn-start">
+          <img src="../assets/textures/ui/Startbutton.png" alt="Start">
+        </button>
+        <div class="credits-text"></div>
+      </div>
+    </div>
+
+    <!-- HUD (during play) -->
+    <div id="screen-playing" class="screen-overlay hidden">
+      <div id="stroke-hint"></div>
+      <button id="btn-encyclopedia">
+        <img src="../assets/textures/ui/Toolbar_Encyclopedia.png" alt="Encyclopedia">
+      </button>
+    </div>
+
+    <!-- Level Complete -->
+    <div id="screen-level-complete" class="screen-overlay hidden">
+      <div class="lc-panel">
+        <img id="lc-fossil-img" class="lc-fossil-display" src="" alt="Fossil">
+        <div id="lc-stars" class="lc-stars"></div>
+        <div id="lc-description" class="lc-text"></div>
+        <div id="lc-fun-fact" class="lc-fun-fact"></div>
+        <div class="lc-buttons">
+          <button id="btn-replay" class="btn-image">
+            <img src="../assets/textures/ui/Arrow_Repeat.png" alt="Replay">
+          </button>
+          <button id="btn-next-level" class="btn-image">
+            <img src="../assets/textures/ui/Arrow_Next.png" alt="Next Level">
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Level Select -->
+    <div id="screen-level-select" class="screen-overlay hidden">
+      <div class="ls-panel">
+        <button id="btn-level-select-close">
+          <img src="../assets/textures/ui/Exitbutton.png" alt="Close">
+        </button>
+        <div id="level-select-grid"></div>
+      </div>
+    </div>
+
+    <!-- Game Over (all levels done) -->
+    <div id="screen-game-over" class="screen-overlay hidden">
+      <div class="go-panel">
+        <div class="go-text">You have collected all fossils! Thank you for playing.</div>
+        <button id="btn-continue-end">
+          <img src="../assets/textures/ui/Continuebutton.png" alt="Continue">
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
