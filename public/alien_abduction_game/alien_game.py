@@ -209,25 +209,8 @@ while running:
     if total_cows < 3 and target_spawn_counter >= target_spawn_rate:
         rect = _find_non_overlapping_cow_pos(targets, sucking)
         if rect:
-            targets.append({'rect': rect, 'was_under_ufo': False})
+            targets.append({'rect': rect})
         target_spawn_counter = 0
-
-    # --- Cows under UFO (beam off) that UFO has passed over: disappear and respawn ---
-    ufo_left = player_rect.left
-    ufo_right = player_rect.right
-    to_respawn = []
-    for t in targets[:]:
-        tr = t['rect']
-        overlap = tr.x < ufo_right and tr.x + tr.w > ufo_left
-        if overlap and not space_pressed:
-            t['was_under_ufo'] = True
-        if not overlap and t['was_under_ufo']:
-            to_respawn.append(t)
-    for t in to_respawn:
-        targets.remove(t)
-        rect = _find_non_overlapping_cow_pos(targets, sucking)
-        if rect:
-            targets.append({'rect': rect, 'was_under_ufo': False})
 
     # --- Beam: detect new cows entering beam and start sucking them ---
     if space_pressed:

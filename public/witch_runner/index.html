@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Storm Witch — Grip Therapy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
+    <style>
+      @font-face {
+        font-family: MicroStyle;
+        src: url('assets/fonts/MicroStyle.ttf') format('truetype');
+      }
+      @font-face {
+        font-family: Serpentine;
+        src: url('assets/fonts/Serpentine.ttf') format('truetype');
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Outfit', sans-serif;
+      }
+      #game {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+      }
+
+      /* Connection screen overlay */
+      #connect-screen {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.65);
+        backdrop-filter: blur(6px);
+      }
+      .connect-card {
+        background: rgba(20, 18, 15, 0.92);
+        border: 2px solid #c2e1a5;
+        border-radius: 24px;
+        padding: 48px 56px;
+        text-align: center;
+        max-width: 440px;
+        width: 90%;
+      }
+      .connect-card h1 {
+        font-family: 'Serpentine', 'Outfit', sans-serif;
+        font-size: 48px;
+        color: #fff;
+        margin-bottom: 4px;
+        letter-spacing: 2px;
+      }
+      .connect-card .subtitle {
+        font-size: 18px;
+        color: #c2e1a5;
+        margin-bottom: 36px;
+        font-weight: 600;
+      }
+      .connect-card button {
+        display: block;
+        width: 100%;
+        padding: 14px 20px;
+        margin-bottom: 14px;
+        border: 2px solid #c2e1a5;
+        border-radius: 14px;
+        background: transparent;
+        color: #c2e1a5;
+        font-family: 'Outfit', sans-serif;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s, color 0.2s, transform 0.1s;
+      }
+      .connect-card button:hover {
+        background: #c2e1a5;
+        color: #6B5344;
+      }
+      .connect-card button:active {
+        transform: scale(0.97);
+      }
+      .connect-card button:last-of-type {
+        margin-bottom: 0;
+      }
+      .connect-card .patient-label {
+        margin-top: 28px;
+        font-size: 15px;
+        color: rgba(255, 255, 255, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game" width="1280" height="720"></canvas>
+
+    <div id="connect-screen">
+      <div class="connect-card">
+        <h1>Storm Witch</h1>
+        <div class="subtitle">Grip Therapy Edition</div>
+        <button id="btn-ble">Connect via BLE</button>
+        <button id="btn-usb">Connect via USB</button>
+        <button id="btn-space">Play with Space Bar</button>
+        <div class="patient-label" id="patient-id">Patient: —</div>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

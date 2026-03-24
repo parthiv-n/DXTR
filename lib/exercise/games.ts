@@ -55,6 +55,15 @@ export const EXERCISE_GAMES: ExerciseGame[] = [
     primaryMetricUnit: "°",
     targetRepsPerDay: 40,
   },
+  {
+    id: "storm-witch",
+    name: "Grip Strength - Storm Witch",
+    icon: "🧙",
+    primaryMetricKey: "avgForce",
+    primaryMetricLabel: "Avg Grip Force",
+    primaryMetricUnit: "%",
+    targetRepsPerDay: 50,
+  },
 ];
 
 export function getGameById(id: string): ExerciseGame | undefined {

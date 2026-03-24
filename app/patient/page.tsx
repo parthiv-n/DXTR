@@ -9,8 +9,8 @@ import { DailyProgressData } from "@/lib/types";
 const gameVisuals = [
   { id: "car-racer", bg: "url('/car_game_thumbnail.png') center/cover", name: "Car Racer", enabled: true },
   { id: "alien-abduction", bg: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)", name: "Alien Abduction", enabled: true },
-  { id: "game-3", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 3", enabled: false },
-  { id: "game-5", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 5", enabled: false },
+  { id: "fossil-finder", bg: "linear-gradient(135deg, #8B6914 0%, #C4A35A 50%, #E8D5A3 100%)", name: "Fossil Finder", enabled: true },
+  { id: "storm-witch", bg: "url('/witch_runner/assets/textures/sky_1.png') center/cover", name: "Storm Witch", enabled: true },
   { id: "game-6", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 6", enabled: false },
   { id: "game-7", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 7", enabled: false },
 ];
@@ -20,6 +20,8 @@ const PATIENT_ID = "edwin-001";
 export default function PatientDashboardPage() {
   const [carRacerProgress, setCarRacerProgress] = useState<DailyProgressData | null>(null);
   const [alienProgress, setAlienProgress] = useState<DailyProgressData | null>(null);
+  const [fossilProgress, setFossilProgress] = useState<DailyProgressData | null>(null);
+  const [stormWitchProgress, setStormWitchProgress] = useState<DailyProgressData | null>(null);
 
   useEffect(() => {
     fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=car-racer`)
@@ -31,11 +33,23 @@ export default function PatientDashboardPage() {
       .then((res) => res.json())
       .then((data: DailyProgressData) => setAlienProgress(data))
       .catch((err) => console.error("Error fetching alien-abduction progress:", err));
+
+    fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=fossil-finder`)
+      .then((res) => res.json())
+      .then((data: DailyProgressData) => setFossilProgress(data))
+      .catch((err) => console.error("Error fetching fossil-finder progress:", err));
+
+    fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=storm-witch`)
+      .then((res) => res.json())
+      .then((data: DailyProgressData) => setStormWitchProgress(data))
+      .catch((err) => console.error("Error fetching storm-witch progress:", err));
   }, []);
 
   const getProgressForGame = (gameId: string) => {
     if (gameId === "car-racer" && carRacerProgress) return carRacerProgress;
     if (gameId === "alien-abduction" && alienProgress) return alienProgress;
+    if (gameId === "fossil-finder" && fossilProgress) return fossilProgress;
+    if (gameId === "storm-witch" && stormWitchProgress) return stormWitchProgress;
     return null;
   };
 
