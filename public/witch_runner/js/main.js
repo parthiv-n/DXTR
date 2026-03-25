@@ -1,4 +1,4 @@
-import { VIEW_W, VIEW_H, WITCH } from './constants.js';
+import { VIEW_W, VIEW_H, WITCH, ORB_TEXTURE_PATH } from './constants.js';
 import { store } from './store.js';
 import { on } from './events.js';
 import { updateBackground, drawBackground, setGameStarted, resetScroll } from './background.js';
@@ -75,7 +75,7 @@ function loadImage(url) {
     const im = new Image();
     im.onload = () => resolve(im);
     im.onerror = reject;
-    im.src = url;
+    im.src = encodeURI(url);
   });
 }
 
@@ -103,6 +103,7 @@ const IMAGE_URLS = [
   'assets/textures/clouds_light_3.png',
   'assets/textures/clouds_light_4.png',
   'assets/sprites/witch.png',
+  ORB_TEXTURE_PATH,
 ];
 
 const AUDIO_URLS = [
@@ -321,7 +322,7 @@ function draw() {
   drawBackground(ctx, images, 0);
 
   // Orbs
-  drawOrbs(ctx, orbs);
+  drawOrbs(ctx, orbs, images);
 
   // Witch
   const wimg = images.get('assets/sprites/witch.png');

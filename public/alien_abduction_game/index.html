@@ -247,6 +247,7 @@
   // ── ESP32 Connection ─────────────────────────────────────────────────────────
   var BLE_SERVICE_UUID        = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
   var BLE_CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+  var BLE_CMD_UUID            = 'beb5483e-36e1-4688-b7f5-ea07361b26a9';
 
   var connectionType    = null;   // 'serial' | 'ble' | null
   var esp32Connected    = false;
@@ -259,6 +260,24 @@
   // BLE state
   var bleDevice         = null;
   var bleCharacteristic = null;
+  var bleCmdCharacteristic = null;
+
+  async function sendModeCommand(mode) {
+    var cmd = 'mode:' + mode;
+    try {
+      if (connectionType === 'ble' && bleCmdCharacteristic) {
+        await bleCmdCharacteristic.writeValue(new TextEncoder().encode(cmd));
+      } else if (connectionType === 'serial' && esp32Port && esp32Port.writable) {
+        var writer = esp32Port.writable.getWriter();
+        await writer.write(new TextEncoder().encode(cmd + '\n'));
+        writer.releaseLock();
+      }
+    } catch (e) { console.warn('sendModeCommand failed:', e); }
+  }
+
+  window.addEventListener('beforeunload', function() {
+    if (esp32Connected) sendModeCommand('idle');
+  });
 
   // FSR threshold — tune when sensor is physically wired
   var FSR_THRESHOLD = 200;
@@ -293,6 +312,7 @@
       esp32Connected = true;
       updateDeviceStatus('connected');
       readESP32Data();
+      sendModeCommand('alien-abduction');
       return true;
     } catch (error) {
       console.error('ESP32 serial connection error:', error);
@@ -350,13 +370,16 @@
       bleCharacteristic = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
       await bleCharacteristic.startNotifications();
       bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
+      try { bleCmdCharacteristic = await service.getCharacteristic(BLE_CMD_UUID); } catch(e) { bleCmdCharacteristic = null; }
       connectionType = 'ble';
       esp32Connected = true;
       updateDeviceStatus('connected');
+      sendModeCommand('alien-abduction');
       return true;
     } catch (e) {
       bleDevice = null;
       bleCharacteristic = null;
+      bleCmdCharacteristic = null;
       return false;
     }
   }
@@ -382,9 +405,12 @@
       await bleCharacteristic.startNotifications();
       bleCharacteristic.addEventListener('characteristicvaluechanged', onBLEData);
 
+      try { bleCmdCharacteristic = await service.getCharacteristic(BLE_CMD_UUID); } catch(e) { bleCmdCharacteristic = null; }
+
       connectionType = 'ble';
       esp32Connected = true;
       updateDeviceStatus('connected');
+      sendModeCommand('alien-abduction');
       return true;
     } catch (error) {
       console.error('BLE connection error:', error);
@@ -392,6 +418,7 @@
       esp32Connected = false;
       bleDevice = null;
       bleCharacteristic = null;
+      bleCmdCharacteristic = null;
       return false;
     }
   }

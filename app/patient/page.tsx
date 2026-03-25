@@ -8,10 +8,10 @@ import { DailyProgressData } from "@/lib/types";
 
 const gameVisuals = [
   { id: "car-racer", bg: "url('/car_game_thumbnail.png') center/cover", name: "Car Racer", enabled: true },
-  { id: "alien-abduction", bg: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)", name: "Alien Abduction", enabled: true },
-  { id: "fossil-finder", bg: "linear-gradient(135deg, #8B6914 0%, #C4A35A 50%, #E8D5A3 100%)", name: "Fossil Finder", enabled: true },
-  { id: "storm-witch", bg: "url('/witch_runner/assets/textures/sky_1.png') center/cover", name: "Storm Witch", enabled: true },
-  { id: "game-6", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 6", enabled: false },
+  { id: "alien-abduction", bg: "url('/alien_abduction_thumbnail.png') center/cover", name: "Alien Abduction", enabled: true },
+  { id: "fossil-finder", bg: "url('/fossil_finder_thumbnail.png') center/cover", name: "Fossil Finder", enabled: true },
+  { id: "storm-witch", bg: "url('/witch_runner_thumbnail.png') center/cover", name: "Storm Witch", enabled: true },
+  { id: "fly-swatter", bg: "url('/fly_swatting_thumbnail.png') center/cover", name: "Fly Swatter", enabled: true },
   { id: "game-7", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 7", enabled: false },
 ];
 
@@ -22,6 +22,7 @@ export default function PatientDashboardPage() {
   const [alienProgress, setAlienProgress] = useState<DailyProgressData | null>(null);
   const [fossilProgress, setFossilProgress] = useState<DailyProgressData | null>(null);
   const [stormWitchProgress, setStormWitchProgress] = useState<DailyProgressData | null>(null);
+  const [flySwatterProgress, setFlySwatterProgress] = useState<DailyProgressData | null>(null);
 
   useEffect(() => {
     fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=car-racer`)
@@ -43,6 +44,11 @@ export default function PatientDashboardPage() {
       .then((res) => res.json())
       .then((data: DailyProgressData) => setStormWitchProgress(data))
       .catch((err) => console.error("Error fetching storm-witch progress:", err));
+
+    fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=fly-swatter`)
+      .then((res) => res.json())
+      .then((data: DailyProgressData) => setFlySwatterProgress(data))
+      .catch((err) => console.error("Error fetching fly-swatter progress:", err));
   }, []);
 
   const getProgressForGame = (gameId: string) => {
@@ -50,13 +56,14 @@ export default function PatientDashboardPage() {
     if (gameId === "alien-abduction" && alienProgress) return alienProgress;
     if (gameId === "fossil-finder" && fossilProgress) return fossilProgress;
     if (gameId === "storm-witch" && stormWitchProgress) return stormWitchProgress;
+    if (gameId === "fly-swatter" && flySwatterProgress) return flySwatterProgress;
     return null;
   };
 
   return (
     <AppShell variant="patient">
       {/* Use flex column to fill available viewport height - scaled for 175% zoom equivalent */}
-      <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-1.5rem)] pb-20">
+      <div className="flex flex-col h-[calc(100vh-4rem)] md:h-[calc(100vh-1.5rem)]">
         {/* Header - larger sizing */}
         <div className="mb-4 md:mb-6 shrink-0">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-dxtr-teal leading-tight">
@@ -207,7 +214,7 @@ export default function PatientDashboardPage() {
           </div>
       </div>
 
-      {/* Yellow Ask Question Bar - fixed at bottom */}
+      {/* Yellow Ask Question Bar - fixed at bottom
       <div className="fixed bottom-0 left-0 md:left-14 right-0 bg-dxtr-gold py-5 px-6 md:px-10 z-30">
         <input
           type="text"
@@ -215,6 +222,7 @@ export default function PatientDashboardPage() {
           className="w-full bg-transparent border-none text-dxtr-brown placeholder-dxtr-brown/70 focus:outline-none text-base md:text-lg"
         />
       </div>
+      */}
     </AppShell>
   );
 }

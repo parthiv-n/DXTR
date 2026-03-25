@@ -1,0 +1,1264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fly Swatter — Protect Your Meal!</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #fdf6e3;
+    --wood: #8B5E3C;
+    --wood-dark: #5C3A1E;
+    --red: #E74C3C;
+    --green: #27AE60;
+    --gold: #F39C12;
+    --text: #3E2723;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  #game-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-conic-gradient(#f5e6d0 0% 25%, #eedcc4 0% 50%) 0 0 / 40px 40px;
+    opacity: 0.5;
+    z-index: 0;
+  }
+
+  .plate {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+  }
+
+  .plate-body {
+    width: 520px;
+    height: 520px;
+    background: radial-gradient(circle at 40% 35%, #fff, #e8e0d4);
+    border-radius: 50%;
+    border: 6px solid #d4c5a9;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15), inset 0 -4px 12px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .meal-emoji {
+    font-size: 176px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  }
+
+  .fly {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    z-index: 50;
+    pointer-events: none;
+  }
+
+  .fly-inner {
+    width: 100%;
+    height: 100%;
+    animation: flyBuzz 0.1s ease-in-out infinite alternate;
+  }
+
+  .fly.landed .fly-inner {
+    animation: flyLanded 0.4s ease-in-out infinite alternate;
+  }
+
+  @keyframes flyBuzz {
+    0% { transform: rotate(-7deg) scale(1); }
+    100% { transform: rotate(7deg) scale(1.04); }
+  }
+
+  @keyframes flyLanded {
+    0% { transform: rotate(-1deg); }
+    100% { transform: rotate(1deg); }
+  }
+
+  .shoo-hand {
+    position: absolute;
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .wind-puff {
+    position: absolute;
+    pointer-events: none;
+    z-index: 190;
+    opacity: 0;
+    border-radius: 50%;
+  }
+
+  .wind-puff.wave1 {
+    animation: puffRight 0.5s 0.06s ease-out forwards;
+  }
+  .wind-puff.wave2 {
+    animation: puffRight 0.5s 0.20s ease-out forwards;
+  }
+  .wind-puff.wave3 {
+    animation: puffRight 0.45s 0.36s ease-out forwards;
+  }
+
+  @keyframes puffRight {
+    0%   { opacity: 0; transform: translateX(0) translateY(0) scale(0.3); }
+    30%  { opacity: 0.55; }
+    100% { opacity: 0; transform: translateX(140px) translateY(-25px) scale(2); }
+  }
+
+  @keyframes puffLeft {
+    0%   { opacity: 0; transform: translateX(0) translateY(0) scale(0.3); }
+    30%  { opacity: 0.55; }
+    100% { opacity: 0; transform: translateX(-140px) translateY(-25px) scale(2); }
+  }
+
+  .wind-arc {
+    position: absolute;
+    pointer-events: none;
+    z-index: 189;
+    opacity: 0;
+    width: 40px;
+    height: 20px;
+    border: 2px solid rgba(139,94,60,0.25);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .wind-arc.r { animation: arcRight 0.45s ease-out forwards; }
+  .wind-arc.l { animation: arcLeft 0.45s ease-out forwards; }
+
+  @keyframes arcRight {
+    0%   { opacity: 0; transform: translateX(0) scale(0.5); }
+    25%  { opacity: 0.6; }
+    100% { opacity: 0; transform: translateX(80px) translateY(-15px) scale(1.5); }
+  }
+
+  @keyframes arcLeft {
+    0%   { opacity: 0; transform: translateX(0) scale(0.5); }
+    25%  { opacity: 0.6; }
+    100% { opacity: 0; transform: translateX(-80px) translateY(-15px) scale(1.5); }
+  }
+
+  .fly.shooed-away {
+    transition: none;
+    animation: flyShooed 0.6s ease-out forwards;
+  }
+
+  @keyframes flyShooed {
+    0%   { opacity: 1; transform: scale(1); }
+    15%  { opacity: 1; transform: scale(1.15); }
+    100% { opacity: 0; transform: var(--shoo-flee) scale(0.6); }
+  }
+
+  /* Stink clouds when fly damages food */
+  .stink-cloud {
+    position: absolute;
+    pointer-events: none;
+    z-index: 4;
+    font-size: 32px;
+    opacity: 0;
+    animation: stinkRise 1.4s ease-out forwards;
+    filter: drop-shadow(0 0 8px rgba(120, 60, 180, 0.55));
+  }
+
+  @keyframes stinkRise {
+    0%   { opacity: 0; transform: translateY(0) scale(0.4) rotate(0deg); }
+    15%  { opacity: 0.85; transform: translateY(-10px) scale(0.9) rotate(-5deg); }
+    50%  { opacity: 0.7; transform: translateY(-50px) scale(1.1) rotate(8deg); }
+    80%  { opacity: 0.3; transform: translateY(-100px) scale(1.3) rotate(-3deg); }
+    100% { opacity: 0; transform: translateY(-140px) scale(1.5) rotate(5deg); }
+  }
+
+  .stink-wisp {
+    position: absolute;
+    pointer-events: none;
+    z-index: 3;
+    width: 40px;
+    height: 20px;
+    opacity: 0;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(150, 80, 200, 0.45), rgba(100, 50, 160, 0.15), transparent);
+    animation: wispFloat 1.6s ease-out forwards;
+  }
+
+  @keyframes wispFloat {
+    0%   { opacity: 0; transform: translateY(0) scaleX(0.5); }
+    20%  { opacity: 0.6; transform: translateY(-15px) scaleX(1.2); }
+    60%  { opacity: 0.35; transform: translateY(-60px) scaleX(1.8) translateX(var(--wisp-dx, 20px)); }
+    100% { opacity: 0; transform: translateY(-120px) scaleX(2.2) translateX(var(--wisp-dx, 20px)); }
+  }
+
+  .fly.dodge-up { animation: dodgeUp 0.5s ease-out forwards; }
+  .fly.dodge-down { animation: dodgeDown 0.5s ease-out forwards; }
+
+  @keyframes dodgeUp {
+    0% { transform: translateY(0); }
+    40% { transform: translateY(-85px) scale(1.15); }
+    100% { transform: translateY(0); }
+  }
+
+  @keyframes dodgeDown {
+    0% { transform: translateY(0); }
+    40% { transform: translateY(85px) scale(1.15); }
+    100% { transform: translateY(0); }
+  }
+
+  .hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    padding: 16px 28px 20px 130px;
+    background: linear-gradient(180deg, rgba(62,39,35,0.97), rgba(62,39,35,0.80) 80%, transparent);
+    color: #fdf6e3;
+    font-family: 'Lilita One', cursive;
+  }
+
+  .hud-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hud-big {
+    font-size: 34px;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+    white-space: nowrap;
+  }
+
+  .health-bar {
+    width: 220px; height: 26px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 13px;
+    overflow: hidden;
+    border: 3px solid rgba(255,255,255,0.3);
+  }
+
+  .health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--red), var(--gold), var(--green));
+    border-radius: 10px;
+    transition: width 0.3s ease;
+  }
+
+  .space-hint {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    font-family: 'Lilita One', cursive;
+    font-size: 24px;
+    color: var(--wood);
+    background: rgba(253,246,227,0.92);
+    padding: 14px 36px;
+    border-radius: 36px;
+    border: 3px solid rgba(139,94,60,0.35);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    pointer-events: none;
+    animation: hintPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes hintPulse {
+    0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.9; }
+    50% { transform: translateX(-50%) scale(1.03); opacity: 1; }
+  }
+
+  .key-icon {
+    display: inline-block;
+    background: var(--wood);
+    color: var(--bg);
+    padding: 8px 24px;
+    border-radius: 8px;
+    font-size: 20px;
+    box-shadow: 0 4px 0 var(--wood-dark);
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+
+  .key-icon.pressed {
+    transform: translateY(3px);
+    box-shadow: 0 0px 0 var(--wood-dark);
+  }
+
+  .score-popup {
+    position: absolute;
+    font-family: 'Lilita One', cursive;
+    font-size: 28px;
+    pointer-events: none;
+    z-index: 210;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    animation: popUp 0.9s ease forwards;
+  }
+
+  .score-popup.hit { color: var(--green); }
+  .score-popup.miss { color: var(--red); font-size: 22px; }
+
+  @keyframes popUp {
+    0% { opacity: 1; transform: translateY(0) scale(0.7); }
+    50% { opacity: 1; transform: translateY(-40px) scale(1.1); }
+    100% { opacity: 0; transform: translateY(-80px) scale(0.9); }
+  }
+
+  .combo-text {
+    position: absolute;
+    top: 30%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Lilita One', cursive;
+    font-size: 48px;
+    color: var(--gold);
+    pointer-events: none;
+    z-index: 220;
+    text-shadow: 0 3px 12px rgba(0,0,0,0.25);
+    animation: comboAnim 1.1s ease forwards;
+  }
+
+  @keyframes comboAnim {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(-8deg); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(2deg); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1) translateY(-40px); }
+  }
+
+  .level-announce {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 150;
+    font-family: 'Lilita One', cursive;
+    font-size: 52px;
+    color: var(--bg);
+    text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    pointer-events: none;
+    animation: announceAnim 1.8s ease forwards;
+    text-align: center;
+  }
+
+  @keyframes announceAnim {
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+    20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    70% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1.5); }
+  }
+
+  .level-sub { font-size: 20px; display: block; opacity: 0.8; }
+
+  .screen-overlay {
+    position: absolute; inset: 0;
+    z-index: 300;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(62,39,35,0.85);
+    backdrop-filter: blur(6px);
+  }
+
+  .screen-overlay.hidden { display: none; }
+
+  .screen-card {
+    background: var(--bg);
+    border-radius: 24px;
+    padding: 48px;
+    text-align: center;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    color: var(--text);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screen-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, var(--red), var(--gold), var(--green));
+  }
+
+  .screen-card h1 { font-family: 'Lilita One', cursive; font-size: 36px; margin-bottom: 8px; }
+  .screen-card h2 { font-family: 'Lilita One', cursive; font-size: 24px; margin-bottom: 4px; }
+  .screen-card p { font-size: 15px; color: #6D4C41; margin: 8px 0; line-height: 1.5; }
+  .screen-emoji { font-size: 64px; margin-bottom: 12px; }
+
+  .btn {
+    display: inline-block;
+    font-family: 'Lilita One', cursive;
+    font-size: 20px;
+    padding: 14px 40px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    color: #fff;
+    margin-top: 20px;
+    transition: transform 0.15s;
+  }
+
+  .btn:hover { transform: scale(1.05); }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: linear-gradient(135deg, var(--green), #219a52); box-shadow: 0 4px 15px rgba(39,174,96,0.4); }
+  .btn-danger { background: linear-gradient(135deg, var(--red), #c0392b); box-shadow: 0 4px 15px rgba(231,76,60,0.4); }
+
+  .stats-row { display: flex; justify-content: center; gap: 28px; margin: 16px 0; }
+  .stat { text-align: center; }
+  .stat-val { font-family: 'Lilita One', cursive; font-size: 28px; color: var(--wood-dark); }
+  .stat-label { font-size: 12px; color: #8D6E63; text-transform: uppercase; }
+  .stars { font-size: 32px; margin: 8px 0; letter-spacing: 4px; }
+
+  .dish-name {
+    font-family: 'Lilita One', cursive;
+    position: absolute;
+    bottom: calc(50% - 310px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    font-size: 16px;
+    color: var(--wood);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  #connection-overlay {
+    position: fixed; top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 500;
+    background: linear-gradient(135deg, #3E2723 0%, #5D4037 100%);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #fff; text-align: center;
+  }
+  #connection-overlay.hidden { display: none; }
+  #connection-overlay h1 { font-family: 'Lilita One', cursive; font-size: 2.5em; margin-bottom: 0.2em; }
+  #connection-overlay .subtitle { font-size: 1.2em; color: #bcaaa4; margin-bottom: 2em; }
+  .overlay-btn-row { display: flex; gap: 16px; margin-bottom: 1.5em; }
+  .overlay-connect-btn {
+    padding: 16px 36px; font-size: 1.1em; font-weight: bold;
+    border: none; border-radius: 12px; color: #fff; cursor: pointer;
+    background-color: #5BB5CF; box-shadow: 0 4px 16px rgba(91,181,207,0.35);
+    transition: transform 0.15s;
+  }
+  .overlay-connect-btn:hover { transform: scale(1.03); background: #4aa3bd; }
+  .overlay-connect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #overlay-status { min-height: 1.5em; font-size: 1em; margin-bottom: 1.5em; }
+  #overlay-status.connecting { color: #ffa500; }
+  #overlay-status.connected { color: #4CAF50; }
+  #overlay-status.error { color: #ff6b6b; }
+  #overlay-skip {
+    background: transparent; border: 1px solid rgba(255,255,255,0.3);
+    color: rgba(255,255,255,0.6); padding: 10px 28px; border-radius: 8px;
+    font-size: 0.95em; cursor: pointer; transition: color 0.2s;
+  }
+  #overlay-skip:hover { color: #fff; border-color: #fff; }
+  #device-badge {
+    position: fixed; top: 8px; right: 8px; z-index: 400;
+    padding: 6px 14px; border-radius: 20px; font-size: 13px;
+    font-weight: bold; display: none; backdrop-filter: blur(4px);
+  }
+  #device-badge.connected { display: block; background: rgba(76,175,80,0.7); color: #fff; }
+  #device-badge.disconnected { display: block; background: rgba(255,107,107,0.6); color: #fff; }
+</style>
+</head>
+<body>
+
+<div id="connection-overlay">
+  <h1>&#129712; Shoo, Fly!</h1>
+  <p class="subtitle">Connect your DXTR controller to begin</p>
+  <div class="overlay-btn-row">
+    <button id="overlay-ble-btn" class="overlay-connect-btn" onclick="window._connectBLE()">&#x1F4F6; Bluetooth</button>
+    <button id="overlay-usb-btn" class="overlay-connect-btn" onclick="window._connectUSB()">&#x1F50C; USB Serial</button>
+  </div>
+  <div id="overlay-status"></div>
+  <button id="overlay-skip" onclick="window._skipConnection()">Continue without device (keyboard)</button>
+</div>
+<div id="device-badge"></div>
+
+<div id="game-container">
+  <div class="hud">
+    <div class="hud-item">
+      <span class="hud-big" id="level-display">Level 1 / 5</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-big" style="font-size:24px;">&#10084;&#65039;</span>
+      <div class="health-bar"><div class="health-fill" id="health-fill" style="width:100%"></div></div>
+    </div>
+    <div class="hud-item">
+      <span class="hud-big" id="fly-count-display">Fly 1 / 10</span>
+    </div>
+  </div>
+
+  <div class="plate">
+    <div class="plate-body">
+      <span class="meal-emoji" id="meal-emoji">&#127837;</span>
+    </div>
+  </div>
+  <div class="dish-name" id="dish-name">Spaghetti</div>
+
+  <div class="space-hint" id="space-hint">
+    <span>Press</span>
+    <span class="key-icon" id="key-icon">SPACE</span>
+    <span>to shoo!</span>
+  </div>
+
+  <!-- SCREENS -->
+  <div class="screen-overlay" id="start-screen">
+    <div class="screen-card">
+      <div class="screen-emoji">&#129712;&#127869;&#65039;</div>
+      <h1>Shoo, Fly!</h1>
+      <p>Flies are buzzing around your meal!<br>Press <strong>SPACE</strong> to wave them away.</p>
+      <p style="font-size:13px; opacity:0.7">5 levels &middot; 10 flies each &middot; Time your shoos!</p>
+      <button class="btn btn-primary" onclick="startGame()">Let's Eat!</button>
+    </div>
+  </div>
+
+  <div class="screen-overlay hidden" id="level-screen">
+    <div class="screen-card">
+      <div class="screen-emoji" id="level-emoji">&#9989;</div>
+      <h2 id="level-title">Level Complete!</h2>
+      <div class="stars" id="level-stars">&#11088;&#11088;&#11088;</div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-val" id="stat-swatted">0</div><div class="stat-label">Shooed</div></div>
+        <div class="stat"><div class="stat-val" id="stat-accuracy">0%</div><div class="stat-label">Accuracy</div></div>
+        <div class="stat"><div class="stat-val" id="stat-lvl-score">0</div><div class="stat-label">Score</div></div>
+      </div>
+      <p id="meal-status-text"></p>
+      <button class="btn btn-primary" id="next-level-btn" onclick="nextLevel()">Next Level</button>
+    </div>
+  </div>
+
+  <div class="screen-overlay hidden" id="gameover-screen">
+    <div class="screen-card">
+      <div class="screen-emoji">&#128565;</div>
+      <h1>Meal Ruined!</h1>
+      <p>The flies got to your food...</p>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-val" id="go-level">1</div><div class="stat-label">Level</div></div>
+        <div class="stat"><div class="stat-val" id="go-score">0</div><div class="stat-label">Total Score</div></div>
+      </div>
+      <button class="btn btn-danger" onclick="restartGame()">Try Again</button>
+    </div>
+  </div>
+
+  <div class="screen-overlay hidden" id="victory-screen">
+    <div class="screen-card">
+      <div class="screen-emoji">&#127942;</div>
+      <h1>All Clear!</h1>
+      <p>You protected all 5 meals! Amazing reflexes.</p>
+      <div class="stars">&#127775;&#127775;&#127775;&#127775;&#127775;</div>
+      <div class="stats-row">
+        <div class="stat"><div class="stat-val" id="v-score">0</div><div class="stat-label">Total Score</div></div>
+        <div class="stat"><div class="stat-val" id="v-accuracy">0%</div><div class="stat-label">Accuracy</div></div>
+      </div>
+      <button class="btn btn-primary" onclick="restartGame()">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── DXTR integration ─────────────────────────────────────────── */
+const urlParams = new URLSearchParams(window.location.search);
+const patientId = urlParams.get('patientId') || 'edwin-001';
+
+async function reportSetComplete(levelIndex, results) {
+  const reps = results.map((r, i) => ({
+    repNumber: i + 1,
+    expectedDirection: 'extension',
+    actualDirection: r === 'hit' ? 'extension' : 'none',
+    achievedAngle: r === 'hit' ? 1 : 0,
+    success: r === 'hit',
+    reactionTimeMs: null,
+    metrics: null,
+  }));
+  try {
+    await fetch('/api/daily-progress/complete-set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ patientId, gameId: 'fly-swatter', reps }),
+    });
+  } catch (e) {
+    console.warn('Failed to report set:', e);
+  }
+}
+
+/* ── ESP32 Connection + Ultrasonic Sensor ─────────────────────── */
+const BLE_SERVICE_UUID        = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+const BLE_CHARACTERISTIC_UUID = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
+const BLE_CMD_UUID            = 'beb5483e-36e1-4688-b7f5-ea07361b26a9';
+
+let connectionType = null;
+let esp32Connected = false;
+let bleDevice = null;
+let bleCharacteristic = null;
+let bleCmdCharacteristic = null;
+let esp32Port = null;
+let esp32Reader = null;
+let esp32Buffer = '';
+
+const SHOO_THRESHOLD_CM = 20;
+const SHOO_COOLDOWN_MS  = 600;
+let lastDistanceCm = 400;
+let prevDistanceCm = 400;
+let lastShooTime   = 0;
+
+function updateDeviceBadge(status) {
+  const el = document.getElementById('device-badge');
+  if (status === 'connected') {
+    el.className = 'connected';
+    el.textContent = connectionType === 'ble' ? 'BLE Connected' : 'USB Connected';
+  } else if (status === 'disconnected') {
+    el.className = 'disconnected';
+    el.textContent = 'Device Disconnected';
+  } else {
+    el.className = ''; el.style.display = 'block'; el.textContent = 'Connecting...';
+  }
+}
+
+async function sendModeCommand(mode) {
+  const cmd = 'mode:' + mode;
+  try {
+    if (connectionType === 'ble' && bleCmdCharacteristic) {
+      await bleCmdCharacteristic.writeValue(new TextEncoder().encode(cmd));
+    } else if (connectionType === 'serial' && esp32Port && esp32Port.writable) {
+      const writer = esp32Port.writable.getWriter();
+      await writer.write(new TextEncoder().encode(cmd + '\n'));
+      writer.releaseLock();
+    }
+  } catch (e) { console.warn('sendModeCommand failed:', e); }
+}
+
+function parseESP32Data(jsonStr) {
+  try {
+    const data = JSON.parse(jsonStr);
+    if (typeof data.distance_cm === 'number' && !data.out_of_range) {
+      prevDistanceCm = lastDistanceCm;
+      lastDistanceCm = data.distance_cm;
+      const drop = prevDistanceCm - lastDistanceCm;
+      const now = performance.now();
+      if (drop > 8 && lastDistanceCm < SHOO_THRESHOLD_CM && (now - lastShooTime) > SHOO_COOLDOWN_MS) {
+        lastShooTime = now;
+        handleSwat();
+      }
+    }
+  } catch (e) {}
+}
+
+async function connectBLE() {
+  if (!('bluetooth' in navigator)) throw new Error('Web Bluetooth not supported');
+  bleDevice = await navigator.bluetooth.requestDevice({
+    filters: [{ namePrefix: 'DXTR' }],
+    optionalServices: [BLE_SERVICE_UUID]
+  });
+  const server = await bleDevice.gatt.connect();
+  const service = await server.getPrimaryService(BLE_SERVICE_UUID);
+  bleCharacteristic = await service.getCharacteristic(BLE_CHARACTERISTIC_UUID);
+  await bleCharacteristic.startNotifications();
+  bleCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
+    const text = new TextDecoder().decode(e.target.value);
+    parseESP32Data(text);
+  });
+  try {
+    bleCmdCharacteristic = await service.getCharacteristic(BLE_CMD_UUID);
+  } catch (e) { bleCmdCharacteristic = null; }
+  connectionType = 'ble';
+  esp32Connected = true;
+  bleDevice.addEventListener('gattserverdisconnected', () => {
+    esp32Connected = false; connectionType = null;
+    updateDeviceBadge('disconnected');
+  });
+  await sendModeCommand('fly-swatter');
+}
+
+async function connectSerial() {
+  if (!('serial' in navigator)) throw new Error('Web Serial not supported');
+  esp32Port = await navigator.serial.requestPort();
+  await esp32Port.open({ baudRate: 115200 });
+  connectionType = 'serial';
+  esp32Connected = true;
+  const decoder = new TextDecoderStream();
+  esp32Port.readable.pipeTo(decoder.writable);
+  esp32Reader = decoder.readable.getReader();
+  (async () => {
+    try {
+      while (esp32Connected) {
+        const { value, done } = await esp32Reader.read();
+        if (done) break;
+        esp32Buffer += value;
+        const lines = esp32Buffer.split('\n');
+        esp32Buffer = lines.pop();
+        for (const line of lines) parseESP32Data(line.trim());
+      }
+    } catch (e) { if (esp32Connected) { esp32Connected = false; updateDeviceBadge('disconnected'); } }
+  })();
+  await sendModeCommand('fly-swatter');
+}
+
+function setOverlayButtonsDisabled(d) {
+  document.getElementById('overlay-ble-btn').disabled = d;
+  document.getElementById('overlay-usb-btn').disabled = d;
+}
+
+function launchGame() {
+  document.getElementById('connection-overlay').classList.add('hidden');
+  updateDeviceBadge('connected');
+  if (esp32Connected) {
+    document.getElementById('space-hint').innerHTML =
+      '<span>Wave your hand near the sensor to shoo!</span>';
+  }
+}
+
+window._connectBLE = async function() {
+  const status = document.getElementById('overlay-status');
+  setOverlayButtonsDisabled(true);
+  status.className = 'connecting'; status.textContent = 'Scanning for DXTR...';
+  try {
+    await connectBLE();
+    status.className = 'connected'; status.textContent = 'Connected! Starting game...';
+    setTimeout(launchGame, 600);
+  } catch (e) {
+    status.className = 'error'; status.textContent = 'Failed: ' + e.message;
+    setOverlayButtonsDisabled(false);
+  }
+};
+
+window._connectUSB = async function() {
+  const status = document.getElementById('overlay-status');
+  setOverlayButtonsDisabled(true);
+  status.className = 'connecting'; status.textContent = 'Waiting for USB device...';
+  try {
+    await connectSerial();
+    status.className = 'connected'; status.textContent = 'Connected! Starting game...';
+    setTimeout(launchGame, 600);
+  } catch (e) {
+    status.className = 'error'; status.textContent = 'Failed: ' + e.message;
+    setOverlayButtonsDisabled(false);
+  }
+};
+
+window._skipConnection = function() {
+  document.getElementById('connection-overlay').classList.add('hidden');
+};
+
+window.addEventListener('beforeunload', () => {
+  if (esp32Connected) sendModeCommand('idle');
+});
+/* ────────────────────────────────────────────────────────────── */
+
+const TOTAL_LEVELS = 5;
+const FLIES_PER_LEVEL = 10;
+
+const ALL_DISHES = [
+  { emoji: '\u{1F35D}', name: 'Spaghetti' }, { emoji: '\u{1F354}', name: 'Burger' },
+  { emoji: '\u{1F363}', name: 'Sushi' }, { emoji: '\u{1F957}', name: 'Salad' },
+  { emoji: '\u{1F370}', name: 'Cake' }, { emoji: '\u{1F355}', name: 'Pizza' },
+  { emoji: '\u{1F32E}', name: 'Tacos' }, { emoji: '\u{1F35C}', name: 'Ramen' },
+  { emoji: '\u{1F958}', name: 'Paella' }, { emoji: '\u{1F35B}', name: 'Curry' },
+  { emoji: '\u{1F969}', name: 'Steak' }, { emoji: '\u{1F357}', name: 'Fried Chicken' },
+  { emoji: '\u{1F9C6}', name: 'Falafel' }, { emoji: '\u{1F95E}', name: 'Pancakes' },
+  { emoji: '\u{1F371}', name: 'Bento Box' }, { emoji: '\u{1FAD5}', name: 'Fondue' },
+  { emoji: '\u{1F950}', name: 'Croissant' }, { emoji: '\u{1F372}', name: 'Stew' },
+  { emoji: '\u{1F32F}', name: 'Burrito' }, { emoji: '\u{1F95F}', name: 'Dumplings' },
+  { emoji: '\u{1F364}', name: 'Tempura' }, { emoji: '\u{1F9C1}', name: 'Cupcake' },
+  { emoji: '\u{1F967}', name: 'Pie' }, { emoji: '\u{1F37F}', name: 'Popcorn' },
+  { emoji: '\u{1FAD4}', name: 'Tamale' },
+];
+
+let gameDishes = [];
+function pickDishes() {
+  gameDishes = [...ALL_DISHES].sort(() => Math.random() - 0.5).slice(0, TOTAL_LEVELS);
+}
+
+let currentLevel = 0, score = 0, mealHealth = 100;
+let currentFlyIndex = 0;
+let totalSwings = 0, totalHits = 0, levelHits = 0;
+let combo = 0;
+let gameActive = false, swiping = false;
+let animFrameId = null;
+let fly = null, flyEl = null;
+let flyResults = [];
+let damageInterval = null;
+
+const container = document.getElementById('game-container');
+
+function createHandSVG() {
+  return `<svg viewBox="0 0 180 260" width="320" height="460" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="sk" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#EDCBA8"/>
+        <stop offset="100%" stop-color="#D4A87A"/>
+      </linearGradient>
+      <linearGradient id="skS" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#D4AA82"/>
+        <stop offset="100%" stop-color="#BA8B5E"/>
+      </linearGradient>
+    </defs>
+    <rect x="55" y="195" width="70" height="65" rx="22" fill="url(#sk)"/>
+    <ellipse cx="90" cy="170" rx="55" ry="50" fill="url(#sk)"/>
+    <ellipse cx="90" cy="170" rx="52" ry="47" fill="url(#skS)" opacity="0.1"/>
+    <rect x="38" y="42" width="24" height="90" rx="12" fill="url(#sk)"/>
+    <ellipse cx="50" cy="44" rx="10" ry="7" fill="#EDD8C4" opacity="0.5"/>
+    <rect x="66" y="28" width="24" height="100" rx="12" fill="url(#sk)"/>
+    <ellipse cx="78" cy="30" rx="10" ry="7" fill="#EDD8C4" opacity="0.5"/>
+    <rect x="94" y="38" width="23" height="92" rx="11.5" fill="url(#sk)"/>
+    <ellipse cx="105.5" cy="40" rx="9.5" ry="7" fill="#EDD8C4" opacity="0.5"/>
+    <rect x="120" y="58" width="21" height="76" rx="10.5" fill="url(#sk)"/>
+    <ellipse cx="130.5" cy="60" rx="9" ry="6.5" fill="#EDD8C4" opacity="0.5"/>
+    <ellipse cx="30" cy="165" rx="18" ry="38" fill="url(#sk)" transform="rotate(20 30 165)"/>
+    <ellipse cx="22" cy="138" rx="10" ry="7" fill="#EDD8C4" opacity="0.4"/>
+    <path d="M55 155 Q90 140 125 155" stroke="#C49B72" stroke-width="1.2" fill="none" opacity="0.3"/>
+    <path d="M60 175 Q90 165 120 175" stroke="#C49B72" stroke-width="1" fill="none" opacity="0.25"/>
+    <line x1="42" y1="90" x2="58" y2="90" stroke="#C49B72" stroke-width="0.8" opacity="0.3"/>
+    <line x1="70" y1="82" x2="86" y2="82" stroke="#C49B72" stroke-width="0.8" opacity="0.3"/>
+    <line x1="98" y1="86" x2="113" y2="86" stroke="#C49B72" stroke-width="0.8" opacity="0.3"/>
+    <line x1="123" y1="98" x2="137" y2="98" stroke="#C49B72" stroke-width="0.8" opacity="0.3"/>
+  </svg>`;
+}
+
+function createFlySVG() {
+  return `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+    <ellipse cx="24" cy="29" rx="8" ry="11" fill="#2C2C2C"/>
+    <circle cx="24" cy="16" r="6" fill="#3A3A3A"/>
+    <circle cx="20.5" cy="14" r="3" fill="#882222" opacity="0.9"/>
+    <circle cx="27.5" cy="14" r="3" fill="#882222" opacity="0.9"/>
+    <ellipse cx="12" cy="21" rx="10" ry="6" fill="rgba(180,210,240,0.5)" transform="rotate(-25 12 21)"/>
+    <ellipse cx="36" cy="21" rx="10" ry="6" fill="rgba(180,210,240,0.5)" transform="rotate(25 36 21)"/>
+    <line x1="19" y1="34" x2="14" y2="42" stroke="#2C2C2C" stroke-width="1.2"/>
+    <line x1="24" y1="37" x2="24" y2="45" stroke="#2C2C2C" stroke-width="1.2"/>
+    <line x1="29" y1="34" x2="34" y2="42" stroke="#2C2C2C" stroke-width="1.2"/>
+  </svg>`;
+}
+
+function getPlateCenter() {
+  const plate = document.querySelector('.plate-body');
+  if (!plate) return { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+  const r = plate.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
+
+function spawnFly() {
+  if (flyEl) { flyEl.remove(); flyEl = null; }
+  if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+
+  const p = getPlateCenter();
+  const angle = Math.random() * Math.PI * 2;
+  const dist = 150 + Math.random() * 70;
+
+  flyEl = document.createElement('div');
+  flyEl.className = 'fly';
+  flyEl.innerHTML = `<div class="fly-inner">${createFlySVG()}</div>`;
+  container.appendChild(flyEl);
+
+  fly = {
+    x: p.x + Math.cos(angle) * dist,
+    y: p.y + Math.sin(angle) * dist,
+    orbitAngle: angle,
+    orbitRadius: 80 + Math.random() * 110,
+    orbitSpeed: (0.011 + currentLevel * 0.004 + Math.random() * 0.006) * (Math.random() < 0.5 ? 1 : -1),
+    wobble: Math.random() * Math.PI * 2,
+    wobbleSpeed: 0.025 + Math.random() * 0.04,
+    wobbleAmp: 18 + Math.random() * 30,
+    dartTimer: 90 + Math.floor(Math.random() * (150 - currentLevel * 18)),
+    isDarting: false, isLanded: false,
+    dartTarget: 20 + Math.random() * 25,
+    alive: true, prevX: 0, prevY: 0
+  };
+
+  flyEl.style.left = fly.x + 'px';
+  flyEl.style.top = fly.y + 'px';
+  updateHUD();
+}
+
+function updateFly() {
+  if (!gameActive || !fly || !fly.alive) return;
+  animFrameId = requestAnimationFrame(updateFly);
+
+  const p = getPlateCenter();
+
+  if (fly.isLanded) {
+    fly.wobble += 0.01;
+    fly.x = p.x + Math.sin(fly.wobble) * 12;
+    fly.y = p.y + Math.cos(fly.wobble) * 8;
+  } else if (fly.isDarting) {
+    const a = Math.atan2(p.y - fly.y, p.x - fly.x);
+    const spd = 1.8 + currentLevel * 0.4;
+    fly.x += Math.cos(a) * spd;
+    fly.y += Math.sin(a) * spd;
+    if (Math.hypot(fly.x - p.x, fly.y - p.y) < fly.dartTarget) {
+      fly.isLanded = true; fly.isDarting = false;
+      flyEl.classList.add('landed');
+      damageInterval = setInterval(() => {
+        if (fly && fly.isLanded && gameActive) damageMeal(1.5 + currentLevel * 0.6);
+      }, 500);
+    }
+  } else {
+    fly.orbitAngle += fly.orbitSpeed;
+    fly.wobble += fly.wobbleSpeed;
+    const tx = p.x + Math.cos(fly.orbitAngle) * fly.orbitRadius + Math.sin(fly.wobble) * fly.wobbleAmp;
+    const ty = p.y + Math.sin(fly.orbitAngle) * fly.orbitRadius + Math.cos(fly.wobble * 1.3) * fly.wobbleAmp * 0.5;
+    fly.x += (tx - fly.x) * 0.045;
+    fly.y += (ty - fly.y) * 0.045;
+    fly.dartTimer--;
+    if (fly.dartTimer <= 0) fly.isDarting = true;
+  }
+
+  fly.x = Math.max(20, Math.min(window.innerWidth - 20, fly.x));
+  fly.y = Math.max(70, Math.min(window.innerHeight - 20, fly.y));
+  flyEl.style.left = fly.x + 'px';
+  flyEl.style.top = fly.y + 'px';
+
+  const dx = fly.x - fly.prevX, dy = fly.y - fly.prevY;
+  if (Math.abs(dx) > 0.15 || Math.abs(dy) > 0.15)
+    flyEl.style.transform = `rotate(${Math.atan2(dy, dx) * 180 / Math.PI + 90}deg)`;
+  fly.prevX = fly.x; fly.prevY = fly.y;
+}
+
+function doShooAnimation(targetX, targetY) {
+  const p = getPlateCenter();
+  const handCenterX = p.x;
+  const handCenterY = p.y;
+  const dx = targetX - handCenterX;
+  const dy = targetY - handCenterY;
+  const dist = Math.hypot(dx, dy) || 1;
+  const nx = dx / dist;
+  const ny = dy / dist;
+
+  const sweepDist = Math.max(dist + 200, 400);
+  const startX = handCenterX - nx * 250;
+  const startY = handCenterY - ny * 250;
+
+  const hand = document.createElement('div');
+  hand.className = 'shoo-hand';
+  hand.innerHTML = createHandSVG();
+  hand.style.left = (startX - 160) + 'px';
+  hand.style.top = (startY - 230) + 'px';
+
+  const angleDeg = Math.atan2(ny, nx) * 180 / Math.PI;
+  const tiltStart = angleDeg - 30;
+  const tiltEnd = angleDeg + 20;
+  const endX = nx * sweepDist;
+  const endY = ny * sweepDist;
+  const midX = nx * sweepDist * 0.45;
+  const midY = ny * sweepDist * 0.45;
+
+  hand.style.animation = 'none';
+  hand.style.setProperty('--sx', '0px');
+  hand.style.setProperty('--sy', '0px');
+  container.appendChild(hand);
+  void hand.offsetWidth;
+
+  const kf = [
+    { offset: 0,    opacity: 0,   transform: `translate(0px, 0px) rotate(${tiltStart}deg) scale(0.85)` },
+    { offset: 0.12, opacity: 1,   transform: `translate(${midX*0.3}px, ${midY*0.3}px) rotate(${tiltStart + 5}deg) scale(1)` },
+    { offset: 0.4,  opacity: 1,   transform: `translate(${midX}px, ${midY}px) rotate(${angleDeg}deg) scale(1.08)` },
+    { offset: 0.65, opacity: 1,   transform: `translate(${endX*0.75}px, ${endY*0.75}px) rotate(${tiltEnd - 5}deg) scale(1)` },
+    { offset: 0.85, opacity: 0.5, transform: `translate(${endX*0.9}px, ${endY*0.9}px) rotate(${tiltEnd}deg) scale(0.92)` },
+    { offset: 1,    opacity: 0,   transform: `translate(${endX}px, ${endY}px) rotate(${tiltEnd}deg) scale(0.8)` },
+  ];
+  hand.animate(kf, { duration: 750, easing: 'cubic-bezier(0.22,0.61,0.36,1)', fill: 'forwards' });
+
+  const puffColors = ['rgba(139,94,60,0.10)', 'rgba(139,94,60,0.08)', 'rgba(139,94,60,0.09)'];
+  for (let i = 0; i < 4; i++) {
+    const puff = document.createElement('div');
+    puff.className = 'wind-puff wave1';
+    const sz = 30 + Math.random() * 30;
+    puff.style.width = sz + 'px';
+    puff.style.height = sz + 'px';
+    puff.style.background = puffColors[i % 3];
+    puff.style.left = (targetX + (Math.random() - 0.5) * 60) + 'px';
+    puff.style.top = (targetY + (Math.random() - 0.5) * 60) + 'px';
+    puff.style.animationDelay = (0.05 + i * 0.08) + 's';
+    container.appendChild(puff);
+    setTimeout(() => puff.remove(), 900);
+  }
+
+  const arcCls = nx >= 0 ? 'r' : 'l';
+  for (let i = 0; i < 3; i++) {
+    const arc = document.createElement('div');
+    arc.className = 'wind-arc ' + arcCls;
+    arc.style.left = (targetX + nx * (20 + i * 30) + (Math.random() - 0.5) * 30) + 'px';
+    arc.style.top = (targetY + ny * (10 + i * 20) + (Math.random() - 0.5) * 30) + 'px';
+    arc.style.animationDelay = (0.06 + i * 0.12) + 's';
+    container.appendChild(arc);
+    setTimeout(() => arc.remove(), 900);
+  }
+
+  setTimeout(() => hand.remove(), 850);
+}
+
+function handleSwat() {
+  if (!gameActive || swiping || !fly || !fly.alive) return;
+  swiping = true;
+  totalSwings++;
+
+  const keyIcon = document.getElementById('key-icon');
+  keyIcon.classList.add('pressed');
+  setTimeout(() => keyIcon.classList.remove('pressed'), 200);
+
+  const flySnapX = fly.x;
+  const flySnapY = fly.y;
+
+  const p = getPlateCenter();
+  const flyDist = Math.hypot(flySnapX - p.x, flySnapY - p.y);
+  const hitZone = 190 + currentLevel * 8;
+  const isHit = flyDist < hitZone;
+
+  doShooAnimation(flySnapX, flySnapY);
+
+  const hitDelay = 240;
+
+  setTimeout(() => {
+    if (isHit) {
+      totalHits++; levelHits++; combo++;
+      fly.alive = false;
+      if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+      flyEl.classList.remove('landed');
+
+      const fleeAngle = Math.atan2(flySnapY - p.y, flySnapX - p.x) + (Math.random() - 0.5) * 0.8;
+      const fleeDist = 400 + Math.random() * 200;
+      const fleeX = Math.cos(fleeAngle) * fleeDist;
+      const fleeY = Math.sin(fleeAngle) * fleeDist;
+      flyEl.style.setProperty('--shoo-flee', `translate(${fleeX}px, ${fleeY}px)`);
+      flyEl.classList.add('shooed-away');
+
+      let pts = 10 + currentLevel * 5;
+      if (fly.isLanded) pts += 10;
+      if (combo >= 3) pts = Math.floor(pts * 1.5);
+      score += pts;
+
+      const popup = document.createElement('div');
+      popup.className = 'score-popup hit';
+      popup.textContent = '+' + pts;
+      popup.style.left = flySnapX + 'px';
+      popup.style.top = (flySnapY - 20) + 'px';
+      container.appendChild(popup);
+      setTimeout(() => popup.remove(), 900);
+
+      if (combo === 3) showCombo('Triple! \u{1F525}');
+      else if (combo === 5) showCombo('On Fire! \u{1F525}\u{1F525}');
+      else if (combo === 8) showCombo('UNSTOPPABLE!');
+
+      flyResults[currentFlyIndex] = 'hit';
+      updateHUD();
+    } else {
+      combo = 0;
+      flyResults[currentFlyIndex] = 'miss';
+      flyEl.classList.add(Math.random() < 0.5 ? 'dodge-up' : 'dodge-down');
+
+      const popup = document.createElement('div');
+      popup.className = 'score-popup miss';
+      popup.textContent = 'MISS!';
+      popup.style.left = flySnapX + 'px';
+      popup.style.top = (flySnapY - 20) + 'px';
+      container.appendChild(popup);
+      setTimeout(() => popup.remove(), 900);
+
+      fly.isDarting = false; fly.isLanded = false;
+      flyEl.classList.remove('landed');
+      if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+
+      const escAngle = Math.atan2(fly.y - p.y, fly.x - p.x);
+      fly.x = p.x + Math.cos(escAngle) * 180;
+      fly.y = p.y + Math.sin(escAngle) * 140;
+      fly.orbitAngle = escAngle;
+      fly.dartTimer = 50 + Math.floor(Math.random() * (110 - currentLevel * 12));
+      updateHUD();
+    }
+  }, hitDelay);
+
+  setTimeout(() => {
+    currentFlyIndex++;
+    if (currentFlyIndex >= FLIES_PER_LEVEL) {
+      if (flyEl) { flyEl.remove(); flyEl = null; }
+      if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+      fly = null; swiping = false;
+      setTimeout(levelComplete, 300);
+    } else {
+      if (flyEl) { flyEl.remove(); flyEl = null; }
+      if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+      fly = null; swiping = false;
+      spawnFly(); updateFly();
+    }
+  }, 900);
+}
+
+function showCombo(text) {
+  const el = document.createElement('div');
+  el.className = 'combo-text';
+  el.textContent = text;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 1100);
+}
+
+function damageMeal(amount) {
+  mealHealth = Math.max(0, mealHealth - amount);
+  updateHUD();
+  spawnStink();
+  if (mealHealth <= 0) gameOver();
+}
+
+function spawnStink() {
+  const p = getPlateCenter();
+
+  const cloud = document.createElement('div');
+  cloud.className = 'stink-cloud';
+  cloud.textContent = '\u{2601}\u{FE0F}';
+  cloud.style.left = (p.x - 16 + (Math.random() - 0.5) * 160) + 'px';
+  cloud.style.top = (p.y - 40 + (Math.random() - 0.5) * 80) + 'px';
+  cloud.style.color = `hsl(${265 + Math.random() * 35}, 58%, ${48 + Math.random() * 12}%)`;
+  container.appendChild(cloud);
+  setTimeout(() => cloud.remove(), 1500);
+
+  for (let i = 0; i < 3; i++) {
+    const wisp = document.createElement('div');
+    wisp.className = 'stink-wisp';
+    wisp.style.left = (p.x - 20 + (Math.random() - 0.5) * 200) + 'px';
+    wisp.style.top = (p.y - 20 + (Math.random() - 0.5) * 100) + 'px';
+    wisp.style.setProperty('--wisp-dx', ((Math.random() - 0.5) * 60) + 'px');
+    wisp.style.width = (30 + Math.random() * 40) + 'px';
+    wisp.style.height = (15 + Math.random() * 20) + 'px';
+    wisp.style.animationDelay = (i * 0.15) + 's';
+    container.appendChild(wisp);
+    setTimeout(() => wisp.remove(), 1800);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('health-fill').style.width = mealHealth + '%';
+  document.getElementById('level-display').textContent = `Level ${currentLevel + 1} / ${TOTAL_LEVELS}`;
+  const flyNum = Math.min(currentFlyIndex + 1, FLIES_PER_LEVEL);
+  document.getElementById('fly-count-display').textContent = `Fly ${flyNum} / ${FLIES_PER_LEVEL}`;
+}
+
+function startLevel() {
+  document.querySelectorAll('.fly, .score-popup, .combo-text, .level-announce, .shoo-hand, .wind-puff, .wind-arc, .stink-cloud, .stink-wisp').forEach(e => e.remove());
+  if (flyEl) { flyEl.remove(); flyEl = null; }
+  if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+  fly = null; currentFlyIndex = 0; levelHits = 0; combo = 0;
+  swiping = false; gameActive = false;
+  flyResults = new Array(FLIES_PER_LEVEL).fill('pending');
+
+  document.getElementById('meal-emoji').textContent = gameDishes[currentLevel].emoji;
+  document.getElementById('dish-name').textContent = gameDishes[currentLevel].name;
+  updateHUD();
+
+  const ann = document.createElement('div');
+  ann.className = 'level-announce';
+  ann.innerHTML = `Level ${currentLevel + 1}<span class="level-sub">Protect the ${gameDishes[currentLevel].name}!</span>`;
+  container.appendChild(ann);
+
+  setTimeout(() => { ann.remove(); gameActive = true; spawnFly(); updateFly(); }, 1800);
+}
+
+function levelComplete() {
+  gameActive = false;
+  if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+  if (flyEl) { flyEl.remove(); flyEl = null; }
+
+  const acc = FLIES_PER_LEVEL > 0 ? Math.round((levelHits / FLIES_PER_LEVEL) * 100) : 0;
+  const stars = mealHealth > 80 ? 3 : mealHealth > 50 ? 2 : 1;
+
+  document.getElementById('level-emoji').textContent = stars === 3 ? '\u{1F31F}' : stars === 2 ? '\u{2B50}' : '\u{1F44D}';
+  document.getElementById('level-title').textContent = `Level ${currentLevel + 1} Complete!`;
+  document.getElementById('level-stars').textContent = '\u{2B50}'.repeat(stars) + '\u{2606}'.repeat(3 - stars);
+  document.getElementById('stat-swatted').textContent = levelHits + '/' + FLIES_PER_LEVEL;
+  document.getElementById('stat-accuracy').textContent = acc + '%';
+  document.getElementById('stat-lvl-score').textContent = score;
+  document.getElementById('meal-status-text').textContent = `Your ${gameDishes[currentLevel].name} survived with ${Math.round(mealHealth)}% freshness!`;
+
+  const btn = document.getElementById('next-level-btn');
+  if (currentLevel >= TOTAL_LEVELS - 1) {
+    btn.textContent = 'See Results'; btn.onclick = showVictory;
+  } else {
+    btn.textContent = 'Next Level'; btn.onclick = nextLevel;
+  }
+
+  reportSetComplete(currentLevel, flyResults);
+
+  document.getElementById('level-screen').classList.remove('hidden');
+}
+
+function nextLevel() {
+  document.getElementById('level-screen').classList.add('hidden');
+  currentLevel++; mealHealth = 100; startLevel();
+}
+
+function showVictory() {
+  document.getElementById('level-screen').classList.add('hidden');
+  const acc = totalSwings > 0 ? Math.round((totalHits / totalSwings) * 100) : 0;
+  document.getElementById('v-score').textContent = score;
+  document.getElementById('v-accuracy').textContent = acc + '%';
+  document.getElementById('victory-screen').classList.remove('hidden');
+
+  setTimeout(() => {
+    try { window.parent.postMessage({ type: 'gameComplete', source: 'fly-swatter' }, '*'); } catch {}
+  }, 3000);
+}
+
+function gameOver() {
+  gameActive = false;
+  if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
+  if (animFrameId) cancelAnimationFrame(animFrameId);
+  if (flyEl) { flyEl.remove(); flyEl = null; }
+  document.getElementById('go-level').textContent = currentLevel + 1;
+  document.getElementById('go-score').textContent = score;
+  document.getElementById('gameover-screen').classList.remove('hidden');
+
+  reportSetComplete(currentLevel, flyResults);
+
+  setTimeout(() => {
+    try { window.parent.postMessage({ type: 'gameComplete', source: 'fly-swatter' }, '*'); } catch {}
+  }, 4000);
+}
+
+function startGame() {
+  document.getElementById('start-screen').classList.add('hidden');
+  pickDishes();
+  currentLevel = 0; score = 0; mealHealth = 100;
+  totalSwings = 0; totalHits = 0;
+  startLevel();
+}
+
+function restartGame() {
+  document.getElementById('gameover-screen').classList.add('hidden');
+  document.getElementById('victory-screen').classList.add('hidden');
+  pickDishes();
+  currentLevel = 0; score = 0; mealHealth = 100;
+  totalSwings = 0; totalHits = 0;
+  startLevel();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); handleSwat(); }
+});
+document.addEventListener('touchstart', e => { e.preventDefault(); handleSwat(); }, { passive: false });
+
+updateHUD();
+</script>
+</body>
+</html>

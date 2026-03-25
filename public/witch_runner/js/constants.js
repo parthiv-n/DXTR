@@ -78,5 +78,8 @@ export const BIRD = {
 
 export const PEARL_R = 10;
 
+/** Grip collectible orb sprite (`public/witch_runner/assets/...`). */
+export const ORB_TEXTURE_PATH = 'assets/Health Potion 1.png';
+
 /** Lighting enum matches LevelConfiguration */
 export const LIGHTING = { DIMMED: 0, DARK: 1, LIGHT: 2 };

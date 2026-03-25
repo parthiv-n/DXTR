@@ -65,6 +65,19 @@ export class GripInput {
     return 1.0 - (clamped - 100) / (1000000 - 100);
   }
 
+  async _sendModeCommand(mode) {
+    const cmd = 'mode:' + mode;
+    try {
+      if (this._cmdChar) {
+        await this._cmdChar.writeValue(new TextEncoder().encode(cmd));
+      } else if (this._serialPort && this._serialPort.writable) {
+        const writer = this._serialPort.writable.getWriter();
+        await writer.write(new TextEncoder().encode(cmd + '\n'));
+        writer.releaseLock();
+      }
+    } catch (e) { console.warn('sendModeCommand failed:', e); }
+  }
+
   async connectBLE() {
     const device = await navigator.bluetooth.requestDevice({
       filters: [{ name: 'DXTR-Controller' }],
@@ -83,13 +96,19 @@ export class GripInput {
         }
       } catch {}
     });
+    try {
+      this._cmdChar = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a9');
+    } catch (e) { this._cmdChar = null; }
     this.connected = true;
     this.mode = 'ble';
+    await this._sendModeCommand('storm-witch');
+    window.addEventListener('beforeunload', () => this._sendModeCommand('idle'));
   }
 
   async connectSerial() {
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 115200 });
+    this._serialPort = port;
     this.connected = true;
     this.mode = 'serial';
 
@@ -118,6 +137,8 @@ export class GripInput {
       } catch {}
     };
     readLoop();
+    await this._sendModeCommand('storm-witch');
+    window.addEventListener('beforeunload', () => this._sendModeCommand('idle'));
   }
 
   startSimulation() {

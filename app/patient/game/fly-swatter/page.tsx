@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
-export default function FossilFinderPage() {
+export default function FlySwatterPage() {
   const router = useRouter();
 
   useEffect(() => {
@@ -21,9 +21,9 @@ export default function FossilFinderPage() {
   return (
     <div className="fixed inset-0 bg-black">
       <iframe
-        src="/fossil_finder/fossil-finder-html/index.html?patientId=edwin-001"
+        src="/fly_swatter/index.html?patientId=edwin-001"
         className="w-full h-full border-0"
-        title="Fossil Finder - DXTR Therapy Game"
+        title="Fly Swatter - DXTR Finger Extension Game"
         allow="autoplay; serial; bluetooth"
       />
 

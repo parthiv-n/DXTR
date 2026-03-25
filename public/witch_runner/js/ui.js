@@ -1,4 +1,4 @@
-import { VIEW_W, VIEW_H } from './constants.js';
+import { VIEW_W, VIEW_H, ORB_TEXTURE_PATH } from './constants.js';
 
 export const ui = {
   gameStarted: false,
@@ -214,13 +214,20 @@ export function drawHUD(ctx, store, gripInput) {
   ctx.restore();
 }
 
-export function drawOrbs(ctx, orbs) {
+export function drawOrbs(ctx, orbs, images) {
+  const img = images?.get(ORB_TEXTURE_PATH);
   const time = performance.now() / 1000;
   for (const o of orbs) {
-    const pulse = 1 + Math.sin(time * 4) * 0.15;
-    const r = 18 * pulse;
+    const pulse = 1 + Math.sin(time * 3) * 0.06;
 
-    // Outer glow
+    if (img && img.complete && img.naturalWidth > 0) {
+      const w = 72 * pulse;
+      const h = (img.naturalHeight / img.naturalWidth) * w;
+      ctx.drawImage(img, o.x - w / 2, o.y - h / 2, w, h);
+      continue;
+    }
+
+    const r = 18 * pulse;
     const glow = ctx.createRadialGradient(o.x, o.y, r * 0.3, o.x, o.y, r * 2.5);
     glow.addColorStop(0, 'rgba(194, 225, 165, 0.6)');
     glow.addColorStop(0.5, 'rgba(194, 225, 165, 0.2)');
@@ -229,14 +236,10 @@ export function drawOrbs(ctx, orbs) {
     ctx.beginPath();
     ctx.arc(o.x, o.y, r * 2.5, 0, Math.PI * 2);
     ctx.fill();
-
-    // Core
     ctx.fillStyle = '#c2e1a5';
     ctx.beginPath();
     ctx.arc(o.x, o.y, r, 0, Math.PI * 2);
     ctx.fill();
-
-    // Inner highlight
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.beginPath();
     ctx.arc(o.x - r * 0.25, o.y - r * 0.25, r * 0.4, 0, Math.PI * 2);
