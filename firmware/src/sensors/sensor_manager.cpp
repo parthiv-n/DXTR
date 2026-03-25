@@ -5,13 +5,19 @@
 #include <string.h>
 
 static GameMode currentMode = MODE_IDLE;
+static NotifyCallback _notifyCb = nullptr;
 
 GameMode getCurrentMode() {
     return currentMode;
 }
 
+void setNotifyCallback(NotifyCallback cb) {
+    _notifyCb = cb;
+}
+
 void setGameMode(GameMode mode) {
-    if (mode == currentMode) return;
+    bool forceCalibrate = (mode == MODE_FOSSIL_FINDER);
+    if (mode == currentMode && !forceCalibrate) return;
 
     GameMode prevMode = currentMode;
     currentMode = mode;
@@ -42,6 +48,11 @@ void setGameMode(GameMode mode) {
         ultrasound_sleep();
     } else if (!prevUS && nowUS) {
         ultrasound_wake();
+    }
+
+    if (mode == MODE_FOSSIL_FINDER) {
+        if (_notifyCb) _notifyCb("{\"calibrating\":true}");
+        imu_zero();
     }
 
     Serial.print("Game mode -> ");

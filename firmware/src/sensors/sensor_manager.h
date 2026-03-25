@@ -10,8 +10,11 @@ enum GameMode : uint8_t {
     MODE_FOSSIL_FINDER
 };
 
+typedef void (*NotifyCallback)(const char* json);
+
 GameMode getCurrentMode();
 void setGameMode(GameMode mode);
+void setNotifyCallback(NotifyCallback cb);
 bool parseGameModeCommand(const char* cmd, GameMode& outMode);
 
 bool isSensorNeeded_IMU();

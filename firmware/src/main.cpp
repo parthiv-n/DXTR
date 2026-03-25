@@ -21,6 +21,14 @@ bool bleClientConnected = false;
 
 static String serialCmdBuffer = "";
 
+static void bleNotify(const char* json) {
+    Serial.println(json);
+    if (bleClientConnected && pCharacteristic) {
+        pCharacteristic->setValue(json);
+        pCharacteristic->notify();
+    }
+}
+
 class ServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer* s)    override { bleClientConnected = true;  Serial.println("BLE client connected"); }
     void onDisconnect(BLEServer* s) override {
@@ -77,12 +85,12 @@ void setup() {
     Serial.println("BLE advertising as 'DXTR-Controller'");
 
     imu_init();
-    imu_zero();
     fsrbutton_init();
     fsrbutton2_init();
     fsrgrip_init();
     ultrasound_init();
 
+    setNotifyCallback(bleNotify);
     imu_sleep();
 
     Serial.println("All sensors initialized. Mode: IDLE (sensors sleeping)");
@@ -115,17 +123,16 @@ void loop() {
     switch (mode) {
         case MODE_CAR_RACER:
         case MODE_FOSSIL_FINDER: {
-            IMUData d1 = imu_read();
-            IMUData d2 = imu_read2();
-            snprintf(json, sizeof(json),
-                "{\"roll\":%.2f,\"pitch\":%.2f,\"deviation\":%.2f,"
-                "\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,"
-                "\"roll2\":%.2f,\"pitch2\":%.2f,\"deviation2\":%.2f,"
-                "\"gx2\":%.2f,\"gy2\":%.2f,\"gz2\":%.2f}",
-                d1.roll, d1.pitch, d1.deviation,
-                d1.gx, d1.gy, d1.gz,
-                d2.roll, d2.pitch, d2.deviation,
-                d2.gx, d2.gy, d2.gz);
+            if (imu_is_calibrating()) {
+                snprintf(json, sizeof(json), "{\"calibrating\":true}");
+            } else {
+                IMUData d = imu_read();
+                snprintf(json, sizeof(json),
+                    "{\"roll\":%.2f,\"pitch\":%.2f,\"deviation\":%.2f,"
+                    "\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f}",
+                    d.roll, d.pitch, d.deviation,
+                    d.gx, d.gy, d.gz);
+            }
             break;
         }
         case MODE_ALIEN_ABDUCTION: {
