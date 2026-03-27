@@ -7,7 +7,8 @@ enum GameMode : uint8_t {
     MODE_ALIEN_ABDUCTION,
     MODE_STORM_WITCH,
     MODE_FLY_SWATTER,
-    MODE_FOSSIL_FINDER
+    MODE_FOSSIL_FINDER,
+    MODE_RHYTHM_REHAB
 };
 
 typedef void (*NotifyCallback)(const char* json);

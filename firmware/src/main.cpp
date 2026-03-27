@@ -122,7 +122,8 @@ void loop() {
 
     switch (mode) {
         case MODE_CAR_RACER:
-        case MODE_FOSSIL_FINDER: {
+        case MODE_FOSSIL_FINDER:
+        case MODE_RHYTHM_REHAB: {
             if (imu_is_calibrating()) {
                 snprintf(json, sizeof(json), "{\"calibrating\":true}");
             } else {

@@ -12,7 +12,7 @@ const gameVisuals = [
   { id: "fossil-finder", bg: "url('/fossil_finder_thumbnail.png') center/cover", name: "Fossil Finder", enabled: true },
   { id: "storm-witch", bg: "url('/witch_runner_thumbnail.png') center/cover", name: "Storm Witch", enabled: true },
   { id: "fly-swatter", bg: "url('/fly_swatting_thumbnail.png') center/cover", name: "Fly Swatter", enabled: true },
-  { id: "game-7", bg: "linear-gradient(135deg, #E0E0E0 0%, #BDBDBD 100%)", name: "Game 7", enabled: false },
+  { id: "rhythm-rehab", bg: "url('/rhythm-rehab-thumbnail.png') center/cover", name: "Rhythm Rehab", enabled: true },
 ];
 
 const PATIENT_ID = "edwin-001";
@@ -23,6 +23,7 @@ export default function PatientDashboardPage() {
   const [fossilProgress, setFossilProgress] = useState<DailyProgressData | null>(null);
   const [stormWitchProgress, setStormWitchProgress] = useState<DailyProgressData | null>(null);
   const [flySwatterProgress, setFlySwatterProgress] = useState<DailyProgressData | null>(null);
+  const [rhythmRehabProgress, setRhythmRehabProgress] = useState<DailyProgressData | null>(null);
 
   useEffect(() => {
     fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=car-racer`)
@@ -49,6 +50,11 @@ export default function PatientDashboardPage() {
       .then((res) => res.json())
       .then((data: DailyProgressData) => setFlySwatterProgress(data))
       .catch((err) => console.error("Error fetching fly-swatter progress:", err));
+
+    fetch(`/api/daily-progress/${PATIENT_ID}/today?gameId=rhythm-rehab`)
+      .then((res) => res.json())
+      .then((data: DailyProgressData) => setRhythmRehabProgress(data))
+      .catch((err) => console.error("Error fetching rhythm-rehab progress:", err));
   }, []);
 
   const getProgressForGame = (gameId: string) => {
@@ -57,6 +63,7 @@ export default function PatientDashboardPage() {
     if (gameId === "fossil-finder" && fossilProgress) return fossilProgress;
     if (gameId === "storm-witch" && stormWitchProgress) return stormWitchProgress;
     if (gameId === "fly-swatter" && flySwatterProgress) return flySwatterProgress;
+    if (gameId === "rhythm-rehab" && rhythmRehabProgress) return rhythmRehabProgress;
     return null;
   };
 

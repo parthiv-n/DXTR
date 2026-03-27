@@ -27,13 +27,15 @@ void setGameMode(GameMode mode) {
 
     switch (prevMode) {
         case MODE_CAR_RACER:
-        case MODE_FOSSIL_FINDER: prevIMU = true; break;
+        case MODE_FOSSIL_FINDER:
+        case MODE_RHYTHM_REHAB:  prevIMU = true; break;
         case MODE_FLY_SWATTER:   prevUS  = true; break;
         default: break;
     }
     switch (currentMode) {
         case MODE_CAR_RACER:
-        case MODE_FOSSIL_FINDER: nowIMU = true; break;
+        case MODE_FOSSIL_FINDER:
+        case MODE_RHYTHM_REHAB:  nowIMU = true; break;
         case MODE_FLY_SWATTER:   nowUS  = true; break;
         default: break;
     }
@@ -69,13 +71,14 @@ bool parseGameModeCommand(const char* cmd, GameMode& outMode) {
     else if (strcmp(name, "storm-witch") == 0)  outMode = MODE_STORM_WITCH;
     else if (strcmp(name, "fly-swatter") == 0)  outMode = MODE_FLY_SWATTER;
     else if (strcmp(name, "fossil-finder") == 0) outMode = MODE_FOSSIL_FINDER;
+    else if (strcmp(name, "rhythm-rehab") == 0) outMode = MODE_RHYTHM_REHAB;
     else return false;
 
     return true;
 }
 
 bool isSensorNeeded_IMU() {
-    return currentMode == MODE_CAR_RACER || currentMode == MODE_FOSSIL_FINDER;
+    return currentMode == MODE_CAR_RACER || currentMode == MODE_FOSSIL_FINDER || currentMode == MODE_RHYTHM_REHAB;
 }
 
 bool isSensorNeeded_FSRButton() {

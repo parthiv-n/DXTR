@@ -195,9 +195,9 @@ function ClinicianDashboardInner() {
   return (
     <AppShell variant="clinician">
       <TooltipProvider>
-        <div className="max-w-6xl mx-auto flex flex-col h-[calc(100dvh-6rem)] overflow-hidden pb-14">
+        <div className="max-w-7xl mx-auto flex flex-col h-[calc(100dvh-6rem)] overflow-hidden pb-14 px-4">
           {/* TOP HALF: timeline + summary side by side */}
-          <div className="flex-1 flex flex-col min-h-0 shrink-0">
+          <div className="flex flex-col min-h-0 shrink-0">
             <ProgressOverviewHeader
               patients={patients}
               selectedPatientId={selectedPatientId}
@@ -222,15 +222,15 @@ function ClinicianDashboardInner() {
                 {error}
               </div>
             ) : progress ? (
-              <div className="flex flex-col md:flex-row gap-4 flex-1 min-h-0 mt-2">
-                <div className="flex-1 min-w-0">
+              <div className="flex flex-col md:flex-row gap-4 min-h-0 mt-2">
+                <div className="md:w-3/5 min-w-0 min-h-[200px]">
                   <RepsTimelineStrip
                     dailyBuckets={progress.dailyBuckets}
                     selectedDay={selectedDay}
                     onDayClick={handleDayClick}
                   />
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="md:w-2/5 min-w-0">
                   <ProgressHeroCard
                     completionPct={progress.completionPct}
                     totalReps={progress.totalReps}
