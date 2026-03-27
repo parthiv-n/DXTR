@@ -195,42 +195,45 @@ function ClinicianDashboardInner() {
   return (
     <AppShell variant="clinician">
       <TooltipProvider>
-        <div className="max-w-7xl mx-auto flex flex-col h-[calc(100dvh-6rem)] overflow-hidden pb-14 px-4">
-          {/* TOP HALF: timeline + summary side by side */}
-          <div className="flex flex-col min-h-0 shrink-0">
-            <ProgressOverviewHeader
-              patients={patients}
-              selectedPatientId={selectedPatientId}
-              onPatientChange={setSelectedPatientId}
-              range={rangeParam}
-              onRangeChange={handleRangeChange}
-              totalReps={progress?.totalReps ?? 0}
-              expectedReps={progress?.expectedReps ?? 0}
-              completionPct={progress?.completionPct ?? 0}
-              homeReps={progress?.homeReps ?? 0}
-              clinicReps={progress?.clinicReps ?? 0}
-              lastActivityAt={progress?.lastActivityAt ?? null}
-            />
+        {/* Scrollable page — no fixed height constraints */}
+        <div className="max-w-7xl mx-auto px-4 pb-20 pt-2 space-y-4">
 
-            {loading && !progress ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="w-6 h-6 animate-spin text-dxtr-teal" />
-              </div>
-            ) : error ? (
-              <div className="flex items-center gap-2 text-red-500 text-sm mb-4">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                {error}
-              </div>
-            ) : progress ? (
-              <div className="flex flex-col md:flex-row gap-4 min-h-0 mt-2">
-                <div className="md:w-3/5 min-w-0 min-h-[200px]">
+          {/* Header row */}
+          <ProgressOverviewHeader
+            patients={patients}
+            selectedPatientId={selectedPatientId}
+            onPatientChange={setSelectedPatientId}
+            range={rangeParam}
+            onRangeChange={handleRangeChange}
+            totalReps={progress?.totalReps ?? 0}
+            expectedReps={progress?.expectedReps ?? 0}
+            completionPct={progress?.completionPct ?? 0}
+            homeReps={progress?.homeReps ?? 0}
+            clinicReps={progress?.clinicReps ?? 0}
+            lastActivityAt={progress?.lastActivityAt ?? null}
+          />
+
+          {/* Timeline + summary */}
+          {loading && !progress ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-dxtr-teal" />
+            </div>
+          ) : error ? (
+            <div className="flex items-center gap-2 text-red-500 text-sm">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              {error}
+            </div>
+          ) : progress ? (
+            <>
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="md:w-3/5 h-[260px]">
                   <RepsTimelineStrip
                     dailyBuckets={progress.dailyBuckets}
                     selectedDay={selectedDay}
                     onDayClick={handleDayClick}
                   />
                 </div>
-                <div className="md:w-2/5 min-w-0">
+                <div className="md:w-2/5 h-[260px]">
                   <ProgressHeroCard
                     completionPct={progress.completionPct}
                     totalReps={progress.totalReps}
@@ -242,16 +245,9 @@ function ClinicianDashboardInner() {
                   />
                 </div>
               </div>
-            ) : null}
-          </div>
 
-          {/* BOTTOM HALF: game cards for deeper analytics */}
-          <div className="flex-1 min-h-0 pt-4 overflow-hidden flex flex-col">
-            {loading && !progress ? (
-              <SkeletonGrid />
-            ) : progress ? (
-              <div className="flex-1 min-h-0">
-                <GameCardGrid
+              {/* Game cards */}
+              <GameCardGrid
                 games={EXERCISE_GAMES}
                 progress={progress}
                 expandedGameId={expandedGameId}
@@ -259,14 +255,16 @@ function ClinicianDashboardInner() {
                 patientId={selectedPatientId}
                 selectedDay={selectedDay}
               />
-              </div>
-            ) : (
-              <div className="text-center text-gray-400 py-10">
-                <p className="text-sm">No exercise data in this range yet.</p>
-                <p className="text-xs mt-1 text-gray-300">Data will appear once the patient completes sessions.</p>
-              </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <div className="text-center text-gray-400 py-10">
+              <p className="text-sm">No exercise data in this range yet.</p>
+              <p className="text-xs mt-1 text-gray-300">Data will appear once the patient completes sessions.</p>
+            </div>
+          )}
+
+          {/* Skeleton while loading */}
+          {loading && !progress && <SkeletonGrid />}
         </div>
       </TooltipProvider>
 

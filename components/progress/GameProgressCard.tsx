@@ -77,13 +77,13 @@ export function GameProgressCard({ game, aggregate, isExpanded, onClick, cardRef
           onClick();
         }
       }}
-      className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 cursor-pointer transition-all hover:border-dxtr-teal/40 focus-visible:ring-2 focus-visible:ring-dxtr-teal focus-visible:ring-offset-2 outline-none min-h-0 overflow-hidden flex flex-col"
+      className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 cursor-pointer transition-all hover:border-dxtr-teal/40 hover:shadow-md focus-visible:ring-2 focus-visible:ring-dxtr-teal focus-visible:ring-offset-2 outline-none flex flex-col"
     >
       {/* Top: icon + name + status */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{game.icon}</span>
-          <h3 className="text-sm font-bold text-dxtr-brown">{game.name}</h3>
+          <span className="text-xl shrink-0">{game.icon}</span>
+          <h3 className="text-sm font-bold text-dxtr-brown leading-tight line-clamp-2">{game.name}</h3>
         </div>
         <div className="flex items-center gap-1.5">
           <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>

@@ -72,17 +72,17 @@ export function ProgressHeroCard({
   rangeDays,
 }: Props) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5 h-full flex flex-col sm:flex-row items-center gap-6">
+    <div className="bg-white rounded-2xl border border-gray-200 p-5 h-full flex flex-row items-center gap-4 overflow-hidden">
       {/* Circular progress */}
-      <div className="flex flex-col items-center gap-1">
+      <div className="flex flex-col items-center gap-1 shrink-0">
         <CircularProgress pct={completionPct} />
-        <span className="text-sm text-gray-500 mt-1">
+        <span className="text-xs text-gray-500">
           {totalReps} / {expectedReps} reps
         </span>
       </div>
 
       {/* Streak / missed info */}
-      <div className="flex-1 flex flex-col gap-2 text-center sm:text-left">
+      <div className="flex-1 flex flex-col gap-1.5 min-w-0">
         <h3 className="text-sm font-semibold text-dxtr-teal uppercase tracking-wide">
           {rangeDays}-Day Summary
         </h3>
@@ -102,22 +102,22 @@ export function ProgressHeroCard({
 
       {/* Weekly breakdown mini-bars */}
       {weeklyBreakdown.length > 0 && (
-        <div className="flex flex-col gap-2 min-w-[160px]">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <div className="flex flex-col gap-1.5 min-w-[140px] shrink-0">
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
             Weekly Breakdown
           </h4>
           {weeklyBreakdown.map((w) => {
             const pct = w.expected > 0 ? Math.round((w.reps / w.expected) * 100) : 0;
             return (
               <div key={w.label} className="flex items-center gap-2">
-                <span className="text-xs text-gray-500 w-14 shrink-0">{w.label}</span>
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
+                <span className="text-xs text-gray-500 w-12 shrink-0">{w.label}</span>
+                <div className="flex-1 bg-gray-200 rounded-full h-1.5">
                   <div
-                    className="bg-dxtr-chart-green rounded-full h-2 transition-all"
+                    className="bg-dxtr-chart-green rounded-full h-1.5 transition-all"
                     style={{ width: `${Math.min(pct, 100)}%` }}
                   />
                 </div>
-                <span className="text-xs text-gray-400 w-16 text-right">
+                <span className="text-xs text-gray-400 w-14 text-right shrink-0">
                   {w.reps}/{w.expected}
                 </span>
               </div>

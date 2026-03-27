@@ -4,6 +4,16 @@ import { GameConfigData, UpdateGameConfigRequest } from "@/lib/types";
 import { getInputProfile } from "@/lib/difficulty/inputProfiles";
 import { GyroscopeDifficultyParams } from "@/lib/difficulty/types";
 
+/** Maps each game to its input type so new configs get the correct profile. */
+const INPUT_TYPE_MAP: Record<string, string> = {
+  "car-racer":       "gyroscope",
+  "fossil-dusting":  "gyroscope",
+  "rhythm-rehab":    "gyroscope",
+  "alien-abduction": "fsr",
+  "storm-witch":     "fsr",
+  "fly-swatter":     "ultrasonic",
+};
+
 // Helper: parse a JSON string safely, returning fallback on failure
 function safeJsonParse<T>(json: string | null | undefined, fallback: T): T {
   if (!json) return fallback;
@@ -175,7 +185,7 @@ export async function PUT(
       create: {
         patientId,
         gameId,
-        inputType: "gyroscope",
+        inputType: INPUT_TYPE_MAP[gameId] ?? "gyroscope",
         difficultyParams: JSON.stringify(mergedParams),
         autoProgressionEnabled: autoProgressionEnabled ?? true,
         minParams: minParams ? JSON.stringify(minParams) : null,
