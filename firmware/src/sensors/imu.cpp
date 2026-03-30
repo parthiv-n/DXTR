@@ -14,6 +14,7 @@ ICM_20948_I2C myICM1;
 ICM_20948_I2C myICM2;
 
 // Session zero offsets
+static float rollOffset  = 0;
 static float pitchOffset = 0;
 static float pitch2Offset = 0;
 
