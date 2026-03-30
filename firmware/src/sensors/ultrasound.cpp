@@ -4,14 +4,14 @@
 #define TRIG_PIN 25
 #define ECHO_PIN 32
 
-void ultrasonic_init() {
+void ultrasound_init() {
     pinMode(TRIG_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
     digitalWrite(TRIG_PIN, LOW);
     Serial.println("Ultrasonic initialised");
 }
 
-UltrasoundData ultrasonic_read() {
+UltrasoundData ultrasound_read() {
     UltrasoundData data;
 
     // Send 10us trigger pulse
