@@ -71,7 +71,7 @@ void loop() {
     FSRGripData fsrgripData = fsrgrip_read();
     UltrasoundData ultrasoundData = ultrasound_read();
 
-    char json[220];
+    char json[300];
     snprintf(json, sizeof(json),
         "{\"roll\":%.2f,\"pitch\":%.2f,\"deviation\":%.2f,\"gx\":%.2f,\"gy\":%.2f,\"gz\":%.2f,\"fsrbutton_resistance\":%.0f,\"fsrbutton_voltage\":%.3f,\"fsrbutton2_resistance\":%.0f,\"fsrbutton2_voltage\":%.3f,\"fsrgrip_resistance\":%.0f,\"fsrgrip_voltage\":%.3f,\"distance\":%.2f,\"out_of_range\":%s}",
         imuData.roll, imuData.pitch, imuData.deviation,
@@ -89,5 +89,5 @@ void loop() {
         pCharacteristic->notify();
     }
 
-    delay(100);
+    delay(200);
 }
