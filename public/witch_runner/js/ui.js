@@ -133,7 +133,7 @@ export function drawHUD(ctx, store, gripInput) {
     ctx.fill();
   }
 
-  // Threshold marker
+  // Target marker (clinician set-point shown to patient)
   const threshX = barX + store.gripThreshold * barW;
   ctx.strokeStyle = '#fff';
   ctx.lineWidth = 3;
@@ -142,11 +142,10 @@ export function drawHUD(ctx, store, gripInput) {
   ctx.lineTo(threshX, barY + barH + 4);
   ctx.stroke();
 
-  // Threshold label
   ctx.font = '14px Outfit, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillStyle = '#fff';
-  ctx.fillText('threshold', threshX, barY - 8);
+  ctx.fillText('target', threshX, barY - 8);
 
   // Hold-duration hint
   ctx.font = '15px Outfit, sans-serif';

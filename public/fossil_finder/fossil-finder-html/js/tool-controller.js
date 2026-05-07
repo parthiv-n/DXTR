@@ -1,5 +1,9 @@
 import Bus from "./bus.js";
 
+// Gyroscope spike detection: magnitude threshold + sign of gz for direction.
+const GYRO_TRIGGER_DEG_S = 150;  // deg/s magnitude to register a stroke
+const GYRO_COOLDOWN_MS = 250;    // minimum ms between strokes
+
 class ToolController {
   constructor(renderer, audioManager) {
     this.renderer = renderer;
@@ -9,6 +13,7 @@ class ToolController {
     this.canHit = true;
     this.hitDelay = 200;
     this.active = false;
+    this._lastGyroHitTime = 0;
 
     this.brushSounds = [
       "../assets/audio/sound_effects/brush/sfx_brush_stroke_normal-001.wav",
@@ -29,6 +34,7 @@ class ToolController {
       this.renderer.resetBrush();
     }
     this.canHit = true;
+    this._lastGyroHitTime = 0;
     this.active = true;
     window.removeEventListener("keydown", this._onKeyDown);
     window.addEventListener("keydown", this._onKeyDown);
@@ -58,8 +64,53 @@ class ToolController {
     }
   }
 
+  /**
+   * Gyroscope rates from parent-forwarded serial JSON.
+   * Uses magnitude for spike detection and sign of gz for left/right direction.
+   */
+  feedGyro(gx, gy, gz) {
+    if (!this.active || !this.canHit) return;
+    if (this.strokeCount >= this.totalStrokes) return;
+
+    const now = performance.now();
+    if (now - this._lastGyroHitTime < GYRO_COOLDOWN_MS) return;
+
+    const magnitude = Math.sqrt(gx * gx + gy * gy + gz * gz);
+    if (magnitude < GYRO_TRIGGER_DEG_S) return;
+
+    // gz sign determines twist direction: positive → left stroke, negative → right stroke
+    const direction = gz >= 0 ? -1 : 1;
+    const expected = this.getExpectedDirection();
+
+    if (direction === expected) {
+      this._lastGyroHitTime = now;
+      this._handleStroke(direction);
+      this._notifyParentStrokeRegistered(magnitude, gz, direction);
+    }
+  }
+
+  _notifyParentStrokeRegistered(magnitude, gz, direction) {
+    try {
+      if (window.parent !== window) {
+        window.parent.postMessage(
+          {
+            type: "fossil-stroke-registered",
+            magnitude,
+            gz,
+            direction,
+            triggerDegS: GYRO_TRIGGER_DEG_S,
+          },
+          window.location.origin
+        );
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
   _handleStroke(direction) {
     this.canHit = false;
+    this._tiltArmed = false;
 
     this.audio.playRandomSfx(this.brushSounds, 0.7);
 

@@ -404,7 +404,7 @@
 
   .screen-card h1 { font-family: 'Lilita One', cursive; font-size: 36px; margin-bottom: 8px; }
   .screen-card h2 { font-family: 'Lilita One', cursive; font-size: 24px; margin-bottom: 4px; }
-  .screen-card p { font-size: 15px; color: #6D4C41; margin: 8px 0; line-height: 1.5; }
+  .screen-card p { font-size: 16px; color: #6D4C41; margin: 8px 0; line-height: 1.5; }
   .screen-emoji { font-size: 64px; margin-bottom: 12px; }
 
   .btn {
@@ -417,18 +417,20 @@
     cursor: pointer;
     color: #fff;
     margin-top: 20px;
-    transition: transform 0.15s;
+    min-height: 48px;
+    transition: box-shadow 0.25s, filter 0.25s;
   }
 
-  .btn:hover { transform: scale(1.05); }
-  .btn:active { transform: scale(0.97); }
+  .btn:hover { filter: brightness(1.1); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+  .btn:active { filter: brightness(0.95); box-shadow: none; }
+  .btn:focus-visible { outline: 3px solid var(--wood); outline-offset: 3px; }
   .btn-primary { background: linear-gradient(135deg, var(--green), #219a52); box-shadow: 0 4px 15px rgba(39,174,96,0.4); }
   .btn-danger { background: linear-gradient(135deg, var(--red), #c0392b); box-shadow: 0 4px 15px rgba(231,76,60,0.4); }
 
   .stats-row { display: flex; justify-content: center; gap: 28px; margin: 16px 0; }
   .stat { text-align: center; }
   .stat-val { font-family: 'Lilita One', cursive; font-size: 28px; color: var(--wood-dark); }
-  .stat-label { font-size: 12px; color: #8D6E63; text-transform: uppercase; }
+  .stat-label { font-size: 14px; font-weight: 700; color: #8D6E63; text-transform: uppercase; }
   .stars { font-size: 32px; margin: 8px 0; letter-spacing: 4px; }
 
   .dish-name {
@@ -461,10 +463,12 @@
     padding: 16px 36px; font-size: 1.1em; font-weight: bold;
     border: none; border-radius: 12px; color: #fff; cursor: pointer;
     background-color: #5BB5CF; box-shadow: 0 4px 16px rgba(91,181,207,0.35);
-    transition: transform 0.15s;
+    min-height: 48px;
+    transition: background-color 0.25s, box-shadow 0.25s;
   }
-  .overlay-connect-btn:hover { transform: scale(1.03); background: #4aa3bd; }
-  .overlay-connect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .overlay-connect-btn:hover { background: #4aa3bd; box-shadow: 0 8px 24px rgba(91,181,207,0.5); }
+  .overlay-connect-btn:focus-visible { outline: 3px solid var(--bg); outline-offset: 3px; }
+  .overlay-connect-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
   #overlay-status { min-height: 1.5em; font-size: 1em; margin-bottom: 1.5em; }
   #overlay-status.connecting { color: #ffa500; }
   #overlay-status.connected { color: #4CAF50; }
@@ -472,9 +476,11 @@
   #overlay-skip {
     background: transparent; border: 1px solid rgba(255,255,255,0.3);
     color: rgba(255,255,255,0.6); padding: 10px 28px; border-radius: 8px;
-    font-size: 0.95em; cursor: pointer; transition: color 0.2s;
+    font-size: 0.95em; cursor: pointer; min-height: 44px;
+    transition: color 0.25s, border-color 0.25s;
   }
   #overlay-skip:hover { color: #fff; border-color: #fff; }
+  #overlay-skip:focus-visible { outline: 3px solid var(--bg); outline-offset: 3px; }
   #device-badge {
     position: fixed; top: 8px; right: 8px; z-index: 400;
     padding: 6px 14px; border-radius: 20px; font-size: 13px;
@@ -482,21 +488,97 @@
   }
   #device-badge.connected { display: block; background: rgba(76,175,80,0.7); color: #fff; }
   #device-badge.disconnected { display: block; background: rgba(255,107,107,0.6); color: #fff; }
+
+  /* TEMP: in-game serial monitor — remove when done debugging */
+  #serial-monitor {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    width: min(440px, 46vw);
+    max-height: min(220px, 30vh);
+    z-index: 315;
+    display: none;
+    flex-direction: column;
+    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+    line-height: 1.4;
+    background: rgba(22, 18, 16, 0.92);
+    color: #a8e6cf;
+    border: 1px solid rgba(139, 94, 60, 0.55);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    overflow: hidden;
+    pointer-events: auto;
+  }
+  #serial-monitor.visible {
+    display: flex;
+  }
+  #serial-monitor .sm-head {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    background: rgba(62, 39, 35, 0.95);
+    color: #F39C12;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  #serial-monitor .sm-head button {
+    font: inherit;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(253,246,227,0.35);
+    background: rgba(253,246,227,0.12);
+    color: #fdf6e3;
+    cursor: pointer;
+  }
+  #serial-monitor .sm-head button:hover {
+    background: rgba(253,246,227,0.22);
+  }
+  #serial-monitor .sm-body {
+    flex: 1;
+    overflow: auto;
+    padding: 8px 10px;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
 
-<div id="connection-overlay">
-  <h1>&#129712; Shoo, Fly!</h1>
+<div id="connection-overlay" role="dialog" aria-modal="true" aria-labelledby="fly-conn-title">
+  <h1 id="fly-conn-title">&#129712; Shoo, Fly!</h1>
   <p class="subtitle">Connect your DXTR controller to begin</p>
   <div class="overlay-btn-row">
     <button id="overlay-ble-btn" class="overlay-connect-btn" onclick="window._connectBLE()">&#x1F4F6; Bluetooth</button>
     <button id="overlay-usb-btn" class="overlay-connect-btn" onclick="window._connectUSB()">&#x1F50C; USB Serial</button>
   </div>
-  <div id="overlay-status"></div>
+  <div id="overlay-status" aria-live="polite"></div>
   <button id="overlay-skip" onclick="window._skipConnection()">Continue without device (keyboard)</button>
 </div>
 <div id="device-badge"></div>
+
+<!-- TEMP serial monitor — remove when done debugging -->
+<div id="serial-monitor" aria-label="Serial debug output">
+  <div class="sm-head">
+    <span>Serial (temp)</span>
+    <button type="button" id="serial-monitor-clear">Clear</button>
+  </div>
+  <pre class="sm-body" id="serial-monitor-log"></pre>
+</div>
 
 <div id="game-container">
   <div class="hud">
@@ -619,11 +701,38 @@ let esp32Port = null;
 let esp32Reader = null;
 let esp32Buffer = '';
 
-const SHOO_THRESHOLD_CM = 20;
-const SHOO_COOLDOWN_MS  = 600;
-let lastDistanceCm = 400;
-let prevDistanceCm = 400;
-let lastShooTime   = 0;
+const SHOO_TRIGGER_CM = 2;
+const SHOO_COOLDOWN_MS = 600;
+let lastDistanceCm = 999;
+let lastShooTime = 0;
+
+/** TEMP serial monitor — remove when done debugging */
+const SERIAL_MONITOR_MAX_LINES = 100;
+const serialMonitorLines = [];
+function appendSerialMonitorLine(raw) {
+  const box = document.getElementById('serial-monitor');
+  const pre = document.getElementById('serial-monitor-log');
+  if (!box || !pre || !box.classList.contains('visible')) return;
+  const line = typeof raw === 'string' ? raw : String(raw);
+  if (!line) return;
+  const ts = new Date().toLocaleTimeString(undefined, { hour12: false });
+  serialMonitorLines.push('[' + ts + '] ' + line);
+  while (serialMonitorLines.length > SERIAL_MONITOR_MAX_LINES) serialMonitorLines.shift();
+  pre.textContent = serialMonitorLines.join('\n');
+  pre.scrollTop = pre.scrollHeight;
+}
+function clearSerialMonitor() {
+  serialMonitorLines.length = 0;
+  const pre = document.getElementById('serial-monitor-log');
+  if (pre) pre.textContent = '';
+}
+function syncSerialMonitorBox() {
+  const box = document.getElementById('serial-monitor');
+  if (!box) return;
+  const connHidden = document.getElementById('connection-overlay').classList.contains('hidden');
+  if (esp32Connected && connHidden) box.classList.add('visible');
+  else box.classList.remove('visible');
+}
 
 function updateDeviceBadge(status) {
   const el = document.getElementById('device-badge');
@@ -640,32 +749,123 @@ function updateDeviceBadge(status) {
 
 async function sendModeCommand(mode) {
   const cmd = 'mode:' + mode;
+  // #region agent log
+  console.log('[DBG-H1H2] sendModeCommand called:', {mode, cmd, connectionType, hasBleCmd:!!bleCmdCharacteristic, hasPort:!!esp32Port});
+  window._dbgLog = (window._dbgLog || []);
+  window._dbgLog.push({t:Date.now(), h:'H1H2', m:'sendModeCommand', d:{mode,connectionType,hasBleCmd:!!bleCmdCharacteristic}});
+  // #endregion
   try {
     if (connectionType === 'ble' && bleCmdCharacteristic) {
       await bleCmdCharacteristic.writeValue(new TextEncoder().encode(cmd));
+      // #region agent log
+      console.log('[DBG-H2] BLE cmd write OK:', cmd);
+      window._dbgLog.push({t:Date.now(), h:'H2', m:'BLE write OK'});
+      // #endregion
     } else if (connectionType === 'serial' && esp32Port && esp32Port.writable) {
       const writer = esp32Port.writable.getWriter();
       await writer.write(new TextEncoder().encode(cmd + '\n'));
       writer.releaseLock();
+      // #region agent log
+      console.log('[DBG-H2] Serial cmd write OK:', cmd);
+      window._dbgLog.push({t:Date.now(), h:'H2', m:'Serial write OK'});
+      // #endregion
+    } else {
+      // #region agent log
+      console.warn('[DBG-H2] No write path matched:', {connectionType, hasBleCmd:!!bleCmdCharacteristic, hasPort:!!esp32Port});
+      window._dbgLog.push({t:Date.now(), h:'H2', m:'NO PATH', d:{connectionType}});
+      // #endregion
     }
-  } catch (e) { console.warn('sendModeCommand failed:', e); }
+  } catch (e) {
+    // #region agent log
+    console.error('[DBG-H2] sendModeCommand FAILED:', e);
+    window._dbgLog.push({t:Date.now(), h:'H2', m:'ERROR', d:{err:e.message}});
+    // #endregion
+    console.warn('sendModeCommand failed:', e);
+  }
+}
+
+let _parseCallCount = 0;
+function triggerSpacebarSwat() {
+  document.dispatchEvent(new KeyboardEvent('keydown', {
+    code: 'Space',
+    key: ' ',
+    bubbles: true,
+    cancelable: true
+  }));
+}
+
+function tryHandleSwat(source) {
+  const reasons = [];
+  if (!gameActive) reasons.push('gameInactive');
+  if (swiping) reasons.push('swiping');
+  if (!fly) reasons.push('noFly');
+  else if (!fly.alive) reasons.push('flyDead');
+
+  if (reasons.length > 0) {
+    const msg = `swat blocked [${source}]: ${reasons.join(', ')}`;
+    appendSerialMonitorLine(msg);
+    console.log('[DBG-SWAT]', msg, {
+      gameActive,
+      swiping,
+      hasFly: !!fly,
+      flyAlive: !!(fly && fly.alive)
+    });
+    return false;
+  }
+
+  handleSwat();
+  return true;
 }
 
 function parseESP32Data(jsonStr) {
+  _parseCallCount++;
+  const c = _parseCallCount;
+  // #region agent log
+  if (c <= 5) console.log('[DBG-H345] parse #' + c, jsonStr.substring(0, 120));
+  // #endregion
   try {
     const data = JSON.parse(jsonStr);
-    if (typeof data.distance_cm === 'number' && !data.out_of_range) {
-      prevDistanceCm = lastDistanceCm;
-      lastDistanceCm = data.distance_cm;
-      const drop = prevDistanceCm - lastDistanceCm;
-      const now = performance.now();
-      if (drop > 8 && lastDistanceCm < SHOO_THRESHOLD_CM && (now - lastShooTime) > SHOO_COOLDOWN_MS) {
-        lastShooTime = now;
-        handleSwat();
-      }
+    const raw = data.distance_cm ?? data.distance ?? null;
+    // #region agent log
+    if (c <= 5) console.log('[DBG-H34] parsed #' + c, {keys: Object.keys(data), raw, hasDistCm:'distance_cm' in data, hasDist:'distance' in data});
+    // #endregion
+    if (raw === null) return;
+    const dist = Number(raw);
+    if (isNaN(dist)) return;
+
+    const prev = lastDistanceCm;
+    lastDistanceCm = dist;
+    const now = performance.now();
+
+    appendSerialMonitorLine(`dist=${dist.toFixed(2)} prev=${prev.toFixed(2)}`);
+
+    if (dist < SHOO_TRIGGER_CM && now - lastShooTime > SHOO_COOLDOWN_MS) {
+      lastShooTime = now;
+      appendSerialMonitorLine('>>> SHOO TRIGGERED');
+      // #region agent log
+      console.log('[DBG-H4] SHOO TRIGGERED', {dist, prev});
+      // #endregion
+      // Route hardware triggers through the same input path as keyboard.
+      tryHandleSwat('sensor');
     }
-  } catch (e) {}
+  } catch (e) {
+    appendSerialMonitorLine('PARSE ERR: ' + e.message);
+    // #region agent log
+    console.error('[DBG-H5] parse error:', e.message, 'raw:', jsonStr.substring(0, 80));
+    // #endregion
+  }
 }
+
+// #region agent log — dump debug state to log file every 3s
+setInterval(() => {
+  if (!window._dbgLog || !window._dbgLog.length) return;
+  const payload = window._dbgLog.splice(0);
+  payload.forEach(entry => {
+    fetch('http://127.0.0.1:7336/ingest/1af0788c-3b86-4387-9800-2df874bdef23',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3521fc'},body:JSON.stringify({sessionId:'3521fc',location:'index.html:periodic',message:entry.m,data:entry.d||{},timestamp:entry.t,hypothesisId:entry.h})}).catch(()=>{});
+  });
+  fetch('http://127.0.0.1:7336/ingest/1af0788c-3b86-4387-9800-2df874bdef23',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3521fc'},body:JSON.stringify({sessionId:'3521fc',location:'index.html:periodic',message:'parseCallCount',data:{count:_parseCallCount,lastDist:lastDistanceCm},timestamp:Date.now(),hypothesisId:'H345'})}).catch(()=>{});
+}, 3000);
+// #endregion
 
 async function connectBLE() {
   if (!('bluetooth' in navigator)) throw new Error('Web Bluetooth not supported');
@@ -679,6 +879,7 @@ async function connectBLE() {
   await bleCharacteristic.startNotifications();
   bleCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
     const text = new TextDecoder().decode(e.target.value);
+    appendSerialMonitorLine(text.trim());
     parseESP32Data(text);
   });
   try {
@@ -689,6 +890,7 @@ async function connectBLE() {
   bleDevice.addEventListener('gattserverdisconnected', () => {
     esp32Connected = false; connectionType = null;
     updateDeviceBadge('disconnected');
+    syncSerialMonitorBox();
   });
   await sendModeCommand('fly-swatter');
 }
@@ -710,9 +912,21 @@ async function connectSerial() {
         esp32Buffer += value;
         const lines = esp32Buffer.split('\n');
         esp32Buffer = lines.pop();
-        for (const line of lines) parseESP32Data(line.trim());
+        for (const line of lines) {
+          const t = line.trim();
+          if (t) {
+            appendSerialMonitorLine(t);
+            parseESP32Data(t);
+          }
+        }
       }
-    } catch (e) { if (esp32Connected) { esp32Connected = false; updateDeviceBadge('disconnected'); } }
+    } catch (e) {
+      if (esp32Connected) {
+        esp32Connected = false;
+        updateDeviceBadge('disconnected');
+        syncSerialMonitorBox();
+      }
+    }
   })();
   await sendModeCommand('fly-swatter');
 }
@@ -725,9 +939,10 @@ function setOverlayButtonsDisabled(d) {
 function launchGame() {
   document.getElementById('connection-overlay').classList.add('hidden');
   updateDeviceBadge('connected');
+  syncSerialMonitorBox();
   if (esp32Connected) {
     document.getElementById('space-hint').innerHTML =
-      '<span>Wave your hand near the sensor to shoo!</span>';
+      '<span>Wave your hand near the sensor or press SPACE to shoo!</span>';
   }
 }
 
@@ -761,11 +976,20 @@ window._connectUSB = async function() {
 
 window._skipConnection = function() {
   document.getElementById('connection-overlay').classList.add('hidden');
+  syncSerialMonitorBox();
 };
 
-window.addEventListener('beforeunload', () => {
-  if (esp32Connected) sendModeCommand('idle');
-});
+document.getElementById('serial-monitor-clear').addEventListener('click', clearSerialMonitor);
+
+function cleanupSerialOnUnload() {
+  try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
+  // Fire-and-forget: must release the SerialPort before the iframe is destroyed,
+  // otherwise the next game's requestPort() returns an already-open port.
+  try { if (esp32Reader) { esp32Reader.cancel().catch(() => {}); esp32Reader = null; } } catch (_) {}
+  try { if (esp32Port)   { esp32Port.close().catch(() => {});    esp32Port   = null; } } catch (_) {}
+}
+window.addEventListener('pagehide',     cleanupSerialOnUnload);
+window.addEventListener('beforeunload', cleanupSerialOnUnload);
 /* ────────────────────────────────────────────────────────────── */
 
 const TOTAL_LEVELS = 5;
@@ -801,8 +1025,50 @@ let animFrameId = null;
 let fly = null, flyEl = null;
 let flyResults = [];
 let damageInterval = null;
+let swatWatchdogTimer = null;
 
 const container = document.getElementById('game-container');
+
+const FLY_BUZZ_URL = 'assets/sounds/fly_buzz.mp4';
+let flyBuzzAudio = null;
+
+function initFlyBuzzAudio() {
+  if (flyBuzzAudio) return;
+  flyBuzzAudio = new Audio(FLY_BUZZ_URL);
+  flyBuzzAudio.loop = true;
+  flyBuzzAudio.preload = 'auto';
+}
+
+function stopFlyBuzz() {
+  if (!flyBuzzAudio) return;
+  try {
+    flyBuzzAudio.pause();
+    flyBuzzAudio.currentTime = 0;
+  } catch (_) {}
+}
+
+function startFlyBuzz() {
+  initFlyBuzzAudio();
+  flyBuzzAudio.volume = 0.08;
+  flyBuzzAudio.play().catch(function () {});
+}
+
+/** Faint while circling / far from plate; ramps up near food; loudest when landed. */
+function updateFlyBuzzVolume() {
+  if (!flyBuzzAudio || !fly) return;
+  const p = getPlateCenter();
+  let target;
+  if (fly.isLanded) {
+    target = 0.38;
+  } else {
+    const d = Math.hypot(fly.x - p.x, fly.y - p.y);
+    const far = 320;
+    const near = 90;
+    const k = Math.max(0, Math.min(1, (far - d) / (far - near)));
+    target = 0.07 + k * 0.13;
+  }
+  flyBuzzAudio.volume += (target - flyBuzzAudio.volume) * 0.18;
+}
 
 function createHandSVG() {
   return `<svg viewBox="0 0 180 260" width="320" height="460" xmlns="http://www.w3.org/2000/svg">
@@ -860,6 +1126,7 @@ function getPlateCenter() {
 }
 
 function spawnFly() {
+  stopFlyBuzz();
   if (flyEl) { flyEl.remove(); flyEl = null; }
   if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
 
@@ -890,6 +1157,7 @@ function spawnFly() {
   flyEl.style.left = fly.x + 'px';
   flyEl.style.top = fly.y + 'px';
   updateHUD();
+  startFlyBuzz();
 }
 
 function updateFly() {
@@ -934,6 +1202,8 @@ function updateFly() {
   if (Math.abs(dx) > 0.15 || Math.abs(dy) > 0.15)
     flyEl.style.transform = `rotate(${Math.atan2(dy, dx) * 180 / Math.PI + 90}deg)`;
   fly.prevX = fly.x; fly.prevY = fly.y;
+
+  updateFlyBuzzVolume();
 }
 
 function doShooAnimation(targetX, targetY) {
@@ -1012,11 +1282,21 @@ function doShooAnimation(targetX, targetY) {
 function handleSwat() {
   if (!gameActive || swiping || !fly || !fly.alive) return;
   swiping = true;
+  if (swatWatchdogTimer) clearTimeout(swatWatchdogTimer);
+  swatWatchdogTimer = setTimeout(() => {
+    if (swiping) {
+      swiping = false;
+      appendSerialMonitorLine('swat watchdog reset (swiping was stuck)');
+      console.warn('[DBG-SWAT] watchdog reset swiping');
+    }
+  }, 1400);
   totalSwings++;
 
   const keyIcon = document.getElementById('key-icon');
-  keyIcon.classList.add('pressed');
-  setTimeout(() => keyIcon.classList.remove('pressed'), 200);
+  if (keyIcon) {
+    keyIcon.classList.add('pressed');
+    setTimeout(() => keyIcon.classList.remove('pressed'), 200);
+  }
 
   const flySnapX = fly.x;
   const flySnapY = fly.y;
@@ -1025,8 +1305,15 @@ function handleSwat() {
   const flyDist = Math.hypot(flySnapX - p.x, flySnapY - p.y);
   const hitZone = 190 + currentLevel * 8;
   const isHit = flyDist < hitZone;
+  appendSerialMonitorLine(`swat eval: distToFly=${flyDist.toFixed(1)} hitZone=${hitZone} hit=${isHit}`);
 
-  doShooAnimation(flySnapX, flySnapY);
+  try {
+    doShooAnimation(flySnapX, flySnapY);
+  } catch (err) {
+    const msg = err && err.message ? err.message : String(err);
+    appendSerialMonitorLine('shoo anim error: ' + msg);
+    console.error('[DBG-SWAT] doShooAnimation failed:', err);
+  }
 
   const hitDelay = 240;
 
@@ -1034,6 +1321,7 @@ function handleSwat() {
     if (isHit) {
       totalHits++; levelHits++; combo++;
       fly.alive = false;
+      stopFlyBuzz();
       if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
       flyEl.classList.remove('landed');
 
@@ -1095,11 +1383,13 @@ function handleSwat() {
       if (flyEl) { flyEl.remove(); flyEl = null; }
       if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
       fly = null; swiping = false;
+      if (swatWatchdogTimer) { clearTimeout(swatWatchdogTimer); swatWatchdogTimer = null; }
       setTimeout(levelComplete, 300);
     } else {
       if (flyEl) { flyEl.remove(); flyEl = null; }
       if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
       fly = null; swiping = false;
+      if (swatWatchdogTimer) { clearTimeout(swatWatchdogTimer); swatWatchdogTimer = null; }
       spawnFly(); updateFly();
     }
   }, 900);
@@ -1154,6 +1444,7 @@ function updateHUD() {
 }
 
 function startLevel() {
+  stopFlyBuzz();
   document.querySelectorAll('.fly, .score-popup, .combo-text, .level-announce, .shoo-hand, .wind-puff, .wind-arc, .stink-cloud, .stink-wisp').forEach(e => e.remove());
   if (flyEl) { flyEl.remove(); flyEl = null; }
   if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
@@ -1175,6 +1466,7 @@ function startLevel() {
 }
 
 function levelComplete() {
+  stopFlyBuzz();
   gameActive = false;
   if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
   if (animFrameId) cancelAnimationFrame(animFrameId);
@@ -1221,6 +1513,7 @@ function showVictory() {
 }
 
 function gameOver() {
+  stopFlyBuzz();
   gameActive = false;
   if (damageInterval) { clearInterval(damageInterval); damageInterval = null; }
   if (animFrameId) cancelAnimationFrame(animFrameId);
@@ -1254,9 +1547,9 @@ function restartGame() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); handleSwat(); }
+  if (e.code === 'Space') { e.preventDefault(); tryHandleSwat('keyboard'); }
 });
-document.addEventListener('touchstart', e => { e.preventDefault(); handleSwat(); }, { passive: false });
+document.addEventListener('touchstart', e => { e.preventDefault(); tryHandleSwat('touch'); }, { passive: false });
 
 updateHUD();
 </script>

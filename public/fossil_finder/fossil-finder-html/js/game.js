@@ -43,6 +43,20 @@ class Game {
 
     this.toolController = new ToolController(this.renderer, AudioManager);
 
+    this._onFossilSensor = (event) => {
+      if (event.origin !== window.location.origin) return;
+      const msg = event.data;
+      if (
+        msg?.type === "fossil-sensor" &&
+        typeof msg.gx === "number" &&
+        typeof msg.gy === "number" &&
+        typeof msg.gz === "number"
+      ) {
+        this.toolController.feedGyro(msg.gx, msg.gy, msg.gz);
+      }
+    };
+    window.addEventListener("message", this._onFossilSensor);
+
     this.screens = {
       mainMenu: document.getElementById("screen-main-menu"),
       playing: document.getElementById("screen-playing"),
@@ -96,17 +110,42 @@ class Game {
 
   _setupMainMenu() {
     const startBtn = document.getElementById("btn-start");
-    startBtn.addEventListener("click", async () => {
-      await this._ensureAudio();
-      AudioManager.playSfx(AUDIO.buttonForward);
-      AudioManager.stopMusic();
-      AudioManager.playMusic(AUDIO.gameMusic, 0.4);
-      Bus.playLevelByIndex(0);
-    });
+    const isEmbedded = window.parent !== window;
+
+    if (isEmbedded) {
+      // When running inside the Next.js patient shell, delegate calibration to
+      // the parent. The parent shows the hold-still overlay, drives USB serial,
+      // then posts fossil-calibration-done to unblock play.
+      window.addEventListener("message", (event) => {
+        if (event.origin !== window.location.origin) return;
+        const type = event.data?.type;
+        if (type === "fossil-calibration-done" || type === "fossil-calibration-error") {
+          this._beginPlay();
+        }
+      });
+
+      startBtn.addEventListener("click", async () => {
+        await this._ensureAudio();
+        window.parent.postMessage({ type: "fossil-request-start" }, window.location.origin);
+      });
+    } else {
+      // Standalone (opened directly in browser): start immediately.
+      startBtn.addEventListener("click", async () => {
+        await this._beginPlay();
+      });
+    }
 
     startBtn.addEventListener("mouseenter", async () => {
       await this._ensureAudio();
     });
+  }
+
+  async _beginPlay() {
+    await this._ensureAudio();
+    AudioManager.playSfx(AUDIO.buttonForward);
+    AudioManager.stopMusic();
+    AudioManager.playMusic(AUDIO.gameMusic, 0.4);
+    Bus.playLevelByIndex(0);
   }
 
   _setupLevelSelect() {
