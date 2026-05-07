@@ -22,7 +22,8 @@
       aspect-ratio: 4 / 3;
       width: min(100vw, calc(100vh * 4 / 3));
       height: min(100vh, calc(100vw * 3 / 4));
-      image-rendering: pixelated;
+      /* Sharp text: internal canvas uses devicePixelRatio; avoid pixelated upscale */
+      image-rendering: auto;
     }
     #dxtr-overlay {
       position: fixed;
@@ -37,23 +38,24 @@
       color: #fff;
       text-align: center;
     }
-    #dxtr-overlay h1 { font-size: 2.5em; margin-bottom: 0.3em; }
-    #dxtr-overlay p { font-size: 1.2em; color: #add8e6; margin-bottom: 1.5em; }
+    #dxtr-overlay h1 { font-size: 2.8em; margin-bottom: 0.3em; line-height: 1.1; }
+    #dxtr-overlay p { font-size: 1.25em; color: #c8eaf5; margin-bottom: 1.2em; line-height: 1.5; max-width: 480px; }
     .dxtr-btn {
       padding: 16px 40px;
-      font-size: 1.1em;
+      font-size: 1.15em;
       font-weight: bold;
-      color: #fff;
       border: none;
       border-radius: 12px;
       cursor: pointer;
-      transition: transform 0.15s, background-color 0.3s;
-      min-height: 48px;
+      transition: background-color 0.25s, box-shadow 0.25s;
+      min-height: 52px;
     }
-    .dxtr-btn:hover { transform: scale(1.03); }
-    .dxtr-btn:active { transform: scale(0.97); }
-    .dxtr-btn-primary { background-color: #5BB5CF; }
-    .dxtr-btn-secondary { background: transparent; border: 1px solid #add8e6; color: #add8e6; margin-top: 12px; }
+    .dxtr-btn:hover { box-shadow: 0 6px 20px rgba(91, 181, 207, 0.45); filter: brightness(1.1); }
+    .dxtr-btn:active { filter: brightness(0.95); box-shadow: none; }
+    .dxtr-btn:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
+    /* Dark text on cyan for sufficient contrast (8.5:1) */
+    .dxtr-btn-primary { background-color: #5BB5CF; color: #0a1628; }
+    .dxtr-btn-secondary { background: transparent; border: 2px solid #add8e6; color: #add8e6; margin-top: 12px; }
 
     /* ── Connection overlay ────────────────────────────────────────────────── */
     #connection-overlay {
@@ -69,43 +71,50 @@
       color: #fff;
       text-align: center;
     }
-    #connection-overlay h1 { font-size: 2.5em; margin-bottom: 0.2em; }
-    #connection-overlay .subtitle { font-size: 1.2em; color: #add8e6; margin-bottom: 2em; }
-    .overlay-btn-row { display: flex; gap: 16px; margin-bottom: 1.5em; }
+    #connection-overlay h1 { font-size: 2.8em; margin-bottom: 0.2em; line-height: 1.1; }
+    #connection-overlay .subtitle { font-size: 1.3em; color: #c8eaf5; margin-bottom: 2em; }
+    .overlay-btn-row { display: flex; gap: 16px; margin-bottom: 1.5em; flex-wrap: wrap; justify-content: center; }
     .overlay-connect-btn {
       padding: 16px 36px;
-      font-size: 1.1em;
+      font-size: 1.15em;
       font-weight: bold;
-      color: #fff;
+      /* Dark text on cyan: contrast 8.5:1, passes WCAG AA */
+      color: #0a1628;
       background: #5BB5CF;
       border: none;
       border-radius: 12px;
       cursor: pointer;
-      transition: transform 0.15s, background-color 0.3s;
-      min-height: 48px;
+      transition: background-color 0.25s, box-shadow 0.25s;
+      min-height: 52px;
     }
-    .overlay-connect-btn:hover { transform: scale(1.03); background: #4aa3bd; }
-    .overlay-connect-btn:active { transform: scale(0.97); }
-    .overlay-connect-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .overlay-connect-btn:hover { background: #4aa3bd; box-shadow: 0 6px 20px rgba(91, 181, 207, 0.45); }
+    .overlay-connect-btn:active { box-shadow: none; }
+    .overlay-connect-btn:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
+    .overlay-connect-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
     #overlay-status {
-      min-height: 1.5em;
-      font-size: 1em;
+      min-height: 1.6em;
+      font-size: 1.1em;
+      font-weight: 600;
       margin-bottom: 1.5em;
     }
-    #overlay-status.connecting { color: #ffa500; }
-    #overlay-status.connected { color: #4CAF50; }
-    #overlay-status.error { color: #ff6b6b; }
+    #overlay-status.connecting { color: #ffd580; }
+    /* Lighter green for sufficient contrast on dark overlay (9.5:1) */
+    #overlay-status.connected { color: #6fcf6f; }
+    #overlay-status.error { color: #ff8585; }
     #overlay-skip {
       background: transparent;
-      border: 1px solid #add8e6;
-      color: #add8e6;
-      padding: 12px 32px;
-      font-size: 1em;
+      border: 2px solid rgba(173,216,230,0.7);
+      color: #c8eaf5;
+      padding: 12px 36px;
+      font-size: 1.05em;
+      font-weight: 600;
       border-radius: 10px;
       cursor: pointer;
-      transition: transform 0.15s;
+      min-height: 48px;
+      transition: color 0.25s, border-color 0.25s;
     }
-    #overlay-skip:hover { transform: scale(1.03); color: #fff; border-color: #fff; }
+    #overlay-skip:hover { color: #fff; border-color: #fff; }
+    #overlay-skip:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
 
     /* ── In-game device status badge ──────────────────────────────────────── */
     #device-status {
@@ -123,23 +132,108 @@
     }
     #device-status.connected { display: block; background: rgba(76,175,80,0.7); }
     #device-status.disconnected { display: block; background: rgba(255,107,107,0.6); }
+
+    /* TEMP: in-game serial monitor */
+    #serial-monitor {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      width: min(440px, 46vw);
+      max-height: min(220px, 30vh);
+      z-index: 380;
+      display: none;
+      flex-direction: column;
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      background: rgba(14, 18, 32, 0.92);
+      color: #9fd8ff;
+      border: 1px solid rgba(91, 181, 207, 0.45);
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+      pointer-events: auto;
+    }
+    #serial-monitor.visible { display: flex; }
+    #serial-monitor .sm-head {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 10px;
+      background: rgba(22, 33, 62, 0.98);
+      color: #5bb5cf;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    #serial-monitor .sm-head button {
+      font: inherit;
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(173, 216, 230, 0.35);
+      background: rgba(173, 216, 230, 0.12);
+      color: #e8f4fc;
+      cursor: pointer;
+    }
+    #serial-monitor .sm-head button:hover { background: rgba(173, 216, 230, 0.22); }
+    #serial-monitor .sm-body {
+      flex: 1;
+      overflow: auto;
+      padding: 8px 10px;
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* ── Reduced motion ────────────────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ── Screen-reader utility ────────────────────────────────────────────── */
+    .sr-only {
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0,0,0,0);
+      white-space: nowrap;
+      border: 0;
+    }
   </style>
 </head>
 <body>
 <!-- ===== ESP32 Connection Overlay (shown first) ===== -->
-<div id="connection-overlay">
-  <h1>&#x1F6F8; Alien Abduction</h1>
+<div id="connection-overlay" role="dialog" aria-modal="true" aria-labelledby="conn-title">
+  <h1 id="conn-title">&#x1F6F8; Alien Abduction</h1>
   <p class="subtitle">Connect your DXTR controller to begin</p>
   <div class="overlay-btn-row">
     <button id="overlay-ble-btn" class="overlay-connect-btn" onclick="window._overlayConnectBLE()">&#x1F4F6; Bluetooth</button>
     <button id="overlay-usb-btn" class="overlay-connect-btn" onclick="window._overlayConnectUSB()">&#x1F50C; USB Serial</button>
   </div>
-  <div id="overlay-status"></div>
+  <div id="overlay-status" aria-live="polite"></div>
   <button id="overlay-skip" onclick="window._skipConnection()">Continue without device</button>
 </div>
 
-<div id="dxtr-overlay"></div>
+<div id="dxtr-overlay" role="dialog" aria-modal="true"></div>
 <div id="device-status"></div>
+<!-- Live region for in-game state announcements to screen readers -->
+<div id="sr-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<!-- TEMP serial monitor -->
+<div id="serial-monitor" aria-label="Serial debug output">
+  <div class="sm-head">
+    <span>Serial (temp)</span>
+    <button type="button" id="serial-monitor-clear">Clear</button>
+  </div>
+  <pre class="sm-body" id="serial-monitor-log"></pre>
+</div>
 <canvas id="game" width="800" height="600"></canvas>
 <script>
 (function () {
@@ -152,6 +246,7 @@
   var setsCompletedToday = 0;
   var setsTarget = 5;
   var dxtrReady = false;
+  var prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function backToMissions() {
     window.parent.postMessage({ type: "gameComplete" }, "*");
@@ -161,6 +256,17 @@
     var el = document.getElementById("dxtr-overlay");
     el.innerHTML = html;
     el.style.display = "flex";
+    // Dynamic aria-labelledby pointing at the overlay's h1
+    var h1 = el.querySelector('h1');
+    if (h1) {
+      h1.id = 'dxtr-overlay-title';
+      el.setAttribute('aria-labelledby', 'dxtr-overlay-title');
+    }
+    // Auto-focus first button so keyboard users can immediately interact
+    setTimeout(function() {
+      var btn = el.querySelector('button');
+      if (btn) btn.focus();
+    }, 50);
   }
 
   function hideDxtrOverlay() {
@@ -218,7 +324,9 @@
       sessionDurationMs: sessionDurationMs,
       cowsMissed: totalCowsMissed,
       forceConsistency: forceConsistency,
-      timeAboveThresholdPct: timeAboveThresholdPct
+      timeAboveThresholdPct: timeAboveThresholdPct,
+      distanceFlownPx: Math.round(distanceFlownPx),
+      finalSpeedScore: sessionSpeedScore,
     };
 
     try {
@@ -275,12 +383,48 @@
     } catch (e) { console.warn('sendModeCommand failed:', e); }
   }
 
-  window.addEventListener('beforeunload', function() {
-    if (esp32Connected) sendModeCommand('idle');
-  });
+  function cleanupSerialOnUnload() {
+    try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
+    // Fire-and-forget: must release the SerialPort before the iframe is destroyed,
+    // otherwise the next game's requestPort() returns an already-open port.
+    try { if (esp32Reader) { esp32Reader.cancel().catch(function(){}); esp32Reader = null; } } catch (_) {}
+    try { if (esp32Port)   { esp32Port.close().catch(function(){});    esp32Port   = null; } } catch (_) {}
+  }
+  window.addEventListener('pagehide',     cleanupSerialOnUnload);
+  window.addEventListener('beforeunload', cleanupSerialOnUnload);
 
-  // FSR threshold — tune when sensor is physically wired
-  var FSR_THRESHOLD = 200;
+  /** TEMP serial monitor */
+  var SERIAL_MONITOR_MAX_LINES = 100;
+  var serialMonitorLines = [];
+  function appendSerialMonitorLine(raw) {
+    var box = document.getElementById('serial-monitor');
+    var pre = document.getElementById('serial-monitor-log');
+    if (!box || !pre || !box.classList.contains('visible')) return;
+    var line = typeof raw === 'string' ? raw : String(raw);
+    if (!line) return;
+    var ts = new Date().toLocaleTimeString(undefined, { hour12: false });
+    serialMonitorLines.push('[' + ts + '] ' + line);
+    while (serialMonitorLines.length > SERIAL_MONITOR_MAX_LINES) serialMonitorLines.shift();
+    pre.textContent = serialMonitorLines.join('\n');
+    pre.scrollTop = pre.scrollHeight;
+  }
+  function clearSerialMonitor() {
+    serialMonitorLines.length = 0;
+    var pre = document.getElementById('serial-monitor-log');
+    if (pre) pre.textContent = '';
+  }
+  function syncSerialMonitorBox() {
+    var box = document.getElementById('serial-monitor');
+    var ov = document.getElementById('connection-overlay');
+    if (!box || !ov) return;
+    var overlayHidden = ov.style.display === 'none';
+    if (esp32Connected && overlayHidden) box.classList.add('visible');
+    else box.classList.remove('visible');
+  }
+  document.getElementById('serial-monitor-clear').addEventListener('click', clearSerialMonitor);
+
+  // FSR button voltage threshold (V) — fires when either button 1 or button 2 reaches this
+  var VOLTAGE_THRESHOLD = 1.5;
 
   // ── Metrics instrumentation state ──────────────────────────────────────────
   var gameStartTime         = 0;
@@ -318,6 +462,7 @@
       console.error('ESP32 serial connection error:', error);
       updateDeviceStatus('disconnected');
       esp32Connected = false;
+      syncSerialMonitorBox();
       return false;
     }
   }
@@ -340,6 +485,7 @@
       if (esp32Connected) {
         console.error('ESP32 read error:', error);
         await disconnectESP32();
+        syncSerialMonitorBox();
       }
     }
   }
@@ -350,6 +496,7 @@
     for (var i = 0; i < lines.length; i++) {
       var line = lines[i].trim();
       if (line.length > 0) {
+        appendSerialMonitorLine(line);
         parseESP32Data(line);
       }
     }
@@ -419,6 +566,7 @@
       bleDevice = null;
       bleCharacteristic = null;
       bleCmdCharacteristic = null;
+      syncSerialMonitorBox();
       return false;
     }
   }
@@ -427,6 +575,7 @@
     var value = event.target.value;
     var text = new TextDecoder().decode(value);
     if (text && text.length > 0) {
+      appendSerialMonitorLine(text.trim());
       parseESP32Data(text.trim());
     }
   }
@@ -437,11 +586,13 @@
     connectionType = null;
     bleCharacteristic = null;
     updateDeviceStatus('disconnected');
+    syncSerialMonitorBox();
     setTimeout(async function() {
       var ok = await tryAutoConnectBLE();
       if (ok) {
         updateDeviceStatus('connected');
         esp32Connected = true;
+        syncSerialMonitorBox();
       }
     }, 1000);
   }
@@ -466,24 +617,29 @@
       }
       connectionType = null;
       updateDeviceStatus('disconnected');
+      syncSerialMonitorBox();
     } catch (error) {
       console.error('ESP32 disconnect error:', error);
     }
   }
 
-  // ── FSR → spacePressed mapping ──────────────────────────────────────────────
+  // ── FSR button voltage → spacePressed mapping ───────────────────────────────
+  // Reads fsrbutton_voltage and fsrbutton2_voltage directly; fires if either >= threshold
 
   function parseESP32Data(jsonString) {
     try {
       var data = JSON.parse(jsonString);
-      if (typeof data.fsr === 'number') {
-        lastFsrValue = data.fsr;
-        var pressed = data.fsr >= FSR_THRESHOLD;
+      if (typeof data.fsrbutton_voltage === 'number' || typeof data.fsrbutton2_voltage === 'number') {
+        var v1 = typeof data.fsrbutton_voltage  === 'number' ? data.fsrbutton_voltage  : 0;
+        var v2 = typeof data.fsrbutton2_voltage === 'number' ? data.fsrbutton2_voltage : 0;
+        var buttonVoltage = v1 > v2 ? v1 : v2;
+        lastFsrValue = buttonVoltage;
+        var pressed = buttonVoltage >= VOLTAGE_THRESHOLD;
         if (pressed !== spacePressed) {
           if (pressed && !spacePressed) {
             // Activation started
             activationStartTime = Date.now();
-            activationPeakFsr = data.fsr;
+            activationPeakFsr = buttonVoltage;
             if (state === 'playing' && firstActivationTime === null) {
               firstActivationTime = Date.now();
             }
@@ -497,12 +653,17 @@
             activationStartTime = 0;
             activationPeakFsr = 0;
           }
+          if (state === 'levelBreak' && pressed) {
+            continueFromLevelBreak();
+            spacePressed = false;
+            return;
+          }
           spacePressed = pressed;
           if (pressed && state === 'start' && dxtrReady) {
             startGame();
           }
         } else if (pressed && state === 'playing') {
-          activationPeakFsr = Math.max(activationPeakFsr, data.fsr);
+          activationPeakFsr = Math.max(activationPeakFsr, buttonVoltage);
         }
       }
     } catch (e) {
@@ -526,6 +687,27 @@
       el.className = 'disconnected';
       el.textContent = 'Device Disconnected';
     }
+  }
+
+  // ── Aria-live announcements during play ─────────────────────────────────────
+
+  function updateAriaLive() {
+    var el = document.getElementById('sr-live');
+    if (!el || state !== 'playing') return;
+    var cowsLeft = Math.max(0, abductionTarget - currentScore);
+    el.textContent = 'Time left: ' + Math.ceil(countdownTimer) + ' seconds. ' +
+      cowsLeft + ' cows left this level. Level score: ' + levelSpeedScore +
+      '. Session total: ' + sessionSpeedScore + '.';
+  }
+
+  function announceAriaLevelBreak() {
+    var el = document.getElementById('sr-live');
+    if (!el) return;
+    var continueHint = esp32Connected
+      ? 'Squeeze your DXTR controller to continue.'
+      : 'Press Space to continue.';
+    el.textContent = 'Level ' + currentLevel + ' complete! Level score: ' + levelSpeedScore + '. ' +
+      continueHint + ' Press E or Escape to exit.';
   }
 
   // ── Connection overlay logic ────────────────────────────────────────────────
@@ -611,6 +793,9 @@
     } else {
       status.textContent = '';
       setOverlayButtonsDisabled(false);
+      // Move focus to first button so keyboard users can navigate immediately
+      var firstBtn = document.querySelector('#connection-overlay button:not(:disabled)');
+      if (firstBtn) firstBtn.focus();
     }
   })();
 
@@ -622,15 +807,17 @@
 
     if (setsCompletedToday >= setsTarget) {
       document.getElementById('connection-overlay').style.display = 'none';
+      syncSerialMonitorBox();
       showDxtrOverlay(
-        '<h1>All Done!</h1>' +
-        '<p>You\'ve completed all ' + setsTarget + ' sets for today!</p>' +
+        '<h1>\u2705 All Done!</h1>' +
+        '<p>You\'ve completed all ' + setsTarget + ' sets for today. Great work!</p>' +
         '<button class="dxtr-btn dxtr-btn-primary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
       );
       return;
     }
 
     document.getElementById('connection-overlay').style.display = 'none';
+    syncSerialMonitorBox();
     dxtrReady = true;
     requestAnimationFrame(loop);
     startGame();
@@ -649,6 +836,8 @@
   const COW_SUCK_SPEED = 6;
   const COW_SUCK_DRIFT = 0.05;  // Fraction of distance toward UFO center per frame (0–1)
   const COW_FADE_SPEED = 0.08;
+  const COW_WANDER_AFTER_MS = 8000;  // If not abducted, cows start wandering slowly
+  const COW_WANDER_SPEED = 0.65;     // pixels per frame (subtle movement on the ground)
 
   const COLORS = {
     orange:    "#ffa500",
@@ -659,9 +848,26 @@
     black:     "#000000",
   };
 
+  // ── Capture score (speed multiplier only — no passive per-frame tick) ─────────
+  // REF_DX: max horizontal pixels/frame at peak UFO speed (derivative of sin path)
+  const REF_DX          = ((W - UFO_W) / 2) * 2 * Math.PI * UFO_SPEED; // ≈ 3.1 px/frame
+  const COW_BONUS_BASE  = 75;   // base points per cow
+  const COW_BONUS_SPEED = 50;   // extra scaled by flight speed before beaming (cap 2×)
+
   // ── Canvas / context ─────────────────────────────────────────────────────────
   const canvas = document.getElementById("game");
   const ctx    = canvas.getContext("2d");
+
+  /** Logical size W×H; backing store scaled by DPR for crisp text and lines */
+  function configureCanvasResolution() {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+  }
+  configureCanvasResolution();
+  window.addEventListener("resize", function () { configureCanvasResolution(); });
 
   // ── Asset loading ─────────────────────────────────────────────────────────────
   function loadImage(src) {
@@ -686,13 +892,27 @@
   let targets = [];
   let sucking = [];
 
-  let score           = 0;
+  let score           = 0;  // total cows abducted (internal counter)
   let currentLevel    = 1;
   let abductionTarget = 10;
   let countdownTimer  = 60;
-  let currentScore    = 0;
+  let currentScore    = 0;  // cows abducted this level
   let spawnCounter    = 0;
   let highestLevelCompleted = 0;
+
+  // ── Speed / score state ───────────────────────────────────────────────────────
+  let sessionSpeedScore = 0; // capture points whole run (clinician finalSpeedScore)
+  let levelSpeedScore   = 0; // capture points this level only (HUD — resets each level)
+  let prevUfoCx         = 0;
+  let lastDx            = 0; // horizontal px/frame while beam off (speed multiplier)
+  let distanceFlownPx   = 0;
+  let scorePop          = 0;
+  let lastScoreBonus    = 0;
+  let ariaLiveInterval  = null;
+
+  // ── Level-break interstitial state ────────────────────────────────────────────
+  let pendingNextLevel    = 0;   // level number waiting to start after break
+  let inputCooldownFrames = 0;   // beam lock after returning from level break
 
   let lastTime    = null;
   let accumulator = 0;
@@ -700,6 +920,11 @@
 
   // ── Input ─────────────────────────────────────────────────────────────────────
   document.addEventListener("keydown", (e) => {
+    if (state === "levelBreak") {
+      if (e.code === "Space") { e.preventDefault(); continueFromLevelBreak(); return; }
+      if (e.code === "Escape" || e.code === "KeyE") { e.preventDefault(); exitFromLevelBreak(); return; }
+      return;
+    }
     if (e.code === "Space") {
       e.preventDefault();
       if (state === "start" && dxtrReady) { startGame(); return; }
@@ -710,6 +935,15 @@
   });
   document.addEventListener("keyup", (e) => {
     if (e.code === "Space") spacePressed = false;
+  });
+
+  // Canvas click: top ~70% = Continue, bottom ~30% = Exit during level break
+  canvas.addEventListener("click", function(e) {
+    if (state !== "levelBreak") return;
+    var rect = canvas.getBoundingClientRect();
+    var relY = (e.clientY - rect.top) / rect.height;
+    if (relY < 0.72) { continueFromLevelBreak(); }
+    else              { exitFromLevelBreak(); }
   });
 
   // ── UFO frames from individual images (idle, beam1, beam2) ───────────────────
@@ -733,6 +967,19 @@
       if (!overlaps) return { x, y };
     }
     return null;  // fallback: use random position if no free spot found
+  }
+
+  function createCowAt(x, y) {
+    return {
+      x,
+      y,
+      w: COW_W,
+      h: COW_H,
+      createdAt: Date.now(),
+      wandering: false,
+      vx: 0,
+      facingRight: true,
+    };
   }
 
   // ── Start / reset ─────────────────────────────────────────────────────────────
@@ -767,6 +1014,18 @@
     totalCowsMissed      = 0;
     wasBeamActive        = false;
 
+    sessionSpeedScore = 0;
+    levelSpeedScore   = 0;
+    prevUfoCx         = getUfoPos().cx;
+    lastDx            = 0;
+    distanceFlownPx   = 0;
+    scorePop          = 0;
+    lastScoreBonus    = 0;
+
+    // Start aria-live announcements every second
+    if (ariaLiveInterval) clearInterval(ariaLiveInterval);
+    ariaLiveInterval = setInterval(updateAriaLive, 1000);
+
     state = "playing";
   }
 
@@ -798,40 +1057,57 @@
 
     const ufo = getUfoPos();
 
+    // ── Speed tracking ────────────────────────────────────────────────────────
+    const dx = Math.abs(ufo.cx - prevUfoCx);
+    if (!spacePressed && sucking.length === 0) {
+      distanceFlownPx += dx;
+      lastDx = dx;
+    }
+    prevUfoCx = ufo.cx;
+
     const totalCows = targets.length + sucking.length;
     const spawnRate = 90;
     spawnCounter++;
     if (totalCows < 3 && spawnCounter >= spawnRate) {
       const pos = findNonOverlappingCowPosition();
       if (pos) {
-        targets.push({ x: pos.x, y: pos.y, w: COW_W, h: COW_H, wasUnderUfo: false });
+        targets.push(createCowAt(pos.x, pos.y));
       }
       spawnCounter = 0;
+    }
+
+    // Cooldown guard: block beam input briefly after resuming from level break
+    if (inputCooldownFrames > 0) {
+      inputCooldownFrames--;
+      spacePressed = false;
     }
 
     // Track beam-on frames for time-above-threshold metric
     if (spacePressed) {
       beamOnFramesTotal++;
-      if (lastFsrValue >= FSR_THRESHOLD) beamOnFramesAboveThreshold++;
+      if (lastFsrValue >= VOLTAGE_THRESHOLD) beamOnFramesAboveThreshold++;
     }
 
-    // Cows that were under the UFO (beam off) and UFO has passed over: disappear and respawn
-    var ufoLeft = ufo.left, ufoRight = ufo.left + UFO_W;
-    var toRespawn = 0;
-    targets = targets.filter((t) => {
-      var overlap = t.x < ufoRight && t.x + t.w > ufoLeft;
-      if (overlap && !spacePressed) t.wasUnderUfo = true;
-      if (!overlap && t.wasUnderUfo) {
+    const now = Date.now();
+    for (const t of targets) {
+      if (!t.wandering && now - t.createdAt >= COW_WANDER_AFTER_MS) {
+        t.wandering = true;
         totalCowsMissed++;
-        toRespawn++;
-        return false;
+        const sign = Math.random() < 0.5 ? -1 : 1;
+        t.vx = sign * COW_WANDER_SPEED;
+        t.facingRight = t.vx > 0;
       }
-      return true;
-    });
-    for (var r = 0; r < toRespawn; r++) {
-      const pos = findNonOverlappingCowPosition();
-      if (pos) {
-        targets.push({ x: pos.x, y: pos.y, w: COW_W, h: COW_H, wasUnderUfo: false });
+      if (t.wandering) {
+        t.x += t.vx;
+        if (t.x <= 0) {
+          t.x = 0;
+          t.vx = Math.abs(t.vx);
+          t.facingRight = true;
+        } else if (t.x + t.w >= W) {
+          t.x = W - t.w;
+          t.vx = -Math.abs(t.vx);
+          t.facingRight = false;
+        }
       }
     }
 
@@ -846,7 +1122,16 @@
           t.x + t.w > beamLeft &&
           t.y < beamTop + beamH &&
           t.y + t.h > beamTop;
-        if (hit) sucking.push({ x: t.x, y: t.y, w: t.w, h: t.h, enterBeamTime: Date.now() });
+        if (hit) {
+          sucking.push({
+            x: t.x,
+            y: t.y,
+            w: t.w,
+            h: t.h,
+            enterBeamTime: Date.now(),
+            facingRight: t.facingRight !== false,
+          });
+        }
         return !hit;
       });
     }
@@ -862,6 +1147,12 @@
           }
           currentScore++;
           score++;
+          // Capture bonus: base + speed-scaled bonus (max 2× at full flight speed)
+          var capBonus = Math.round(COW_BONUS_BASE + COW_BONUS_SPEED * Math.min(2, REF_DX > 0 ? lastDx / REF_DX : 0));
+          sessionSpeedScore += capBonus;
+          levelSpeedScore += capBonus;
+          lastScoreBonus = capBonus;
+          scorePop = 20;
           return false;
         }
         return true;
@@ -886,8 +1177,7 @@
     if (currentScore >= abductionTarget) advanceLevel();
   }
 
-  function advanceLevel() {
-    // Aggregate metrics for the level just completed
+  function recordCompletedLevelMetrics() {
     var peaks = activationsThisLevel.map(function(a) { return a.peakFsr; });
     var holds = activationsThisLevel.map(function(a) { return a.holdDurationMs; });
     levelMetrics[currentLevel] = {
@@ -899,48 +1189,93 @@
         ? Math.round(beamOnTimesThisLevel.reduce(function(a,b){return a+b;},0) / beamOnTimesThisLevel.length)
         : null,
     };
-
     highestLevelCompleted = currentLevel;
-    currentLevel++;
-    if (currentLevel <= 10) {
-      currentScore    = 0;
-      abductionTarget = 10 * currentLevel;
-      countdownTimer  = 60;
-      // Reset per-level tracking
-      activationsThisLevel = [];
-      levelStartTime       = Date.now();
-      firstActivationTime  = null;
-      beamOnTimesThisLevel = [];
-    } else {
+  }
+
+  function advanceLevel() {
+    recordCompletedLevelMetrics();
+
+    if (currentLevel >= 10) {
       onVictory();
+      return;
     }
+
+    // Show interstitial between levels 1–9
+    pendingNextLevel = currentLevel + 1;
+    targets = [];
+    sucking = [];
+    state = 'levelBreak';
+    announceAriaLevelBreak();
+  }
+
+  function continueFromLevelBreak() {
+    currentLevel    = pendingNextLevel;
+    currentScore    = 0;
+    abductionTarget = 10 * currentLevel;
+    countdownTimer  = 60;
+    levelSpeedScore = 0;
+    // Reset per-level tracking
+    activationsThisLevel = [];
+    levelStartTime       = Date.now();
+    firstActivationTime  = null;
+    beamOnTimesThisLevel = [];
+    // Debounce beam so the same squeeze doesn't immediately fire
+    spacePressed         = false;
+    inputCooldownFrames  = 25;
+    state = 'playing';
+  }
+
+  async function exitFromLevelBreak() {
+    state = 'gameover';
+    if (ariaLiveInterval) { clearInterval(ariaLiveInterval); ariaLiveInterval = null; }
+    var levelsCompleted = highestLevelCompleted;
+    if (levelsCompleted > 0) {
+      await submitSetResults(levelsCompleted);
+    }
+    var scoreMsg = sessionSpeedScore > 0
+      ? 'Session score: <strong>' + sessionSpeedScore + '</strong> &nbsp;&bull;&nbsp; Cows abducted: ' + score
+      : 'Cows abducted: ' + score;
+    showDxtrOverlay(
+      '<h1>\uD83D\uDEF8 Session Ended</h1>' +
+      '<p>' + scoreMsg + '</p>' +
+      '<p>Levels completed: ' + levelsCompleted + ' &nbsp;&bull;&nbsp; Set ' + setsCompletedToday + '\u200A/\u200A' + setsTarget + ' today</p>' +
+      '<button class="dxtr-btn dxtr-btn-primary" onclick="document.dispatchEvent(new CustomEvent(\'dxtr-play-again\'))">Play Again</button>' +
+      '<button class="dxtr-btn dxtr-btn-secondary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
+    );
   }
 
   // ── DXTR End-of-game flows ────────────────────────────────────────────────────
 
   async function onGameOver() {
     state = "gameover";
+    if (ariaLiveInterval) { clearInterval(ariaLiveInterval); ariaLiveInterval = null; }
     var levelsCompleted = highestLevelCompleted;
     if (levelsCompleted > 0) {
       await submitSetResults(levelsCompleted);
     }
+    var scoreMsg = sessionSpeedScore > 0
+      ? 'Session score: <strong>' + sessionSpeedScore + '</strong> &nbsp;&bull;&nbsp; Cows abducted: ' + score
+      : 'Cows abducted: ' + score;
     showDxtrOverlay(
-      '<h1>Game Over</h1>' +
-      '<p>Final score: ' + score + ' | Levels completed: ' + levelsCompleted + '</p>' +
-      '<p>Set ' + setsCompletedToday + ' / ' + setsTarget + ' completed today</p>' +
-      '<button class="dxtr-btn dxtr-btn-primary" onclick="document.dispatchEvent(new CustomEvent(\'dxtr-play-again\'))">Play Again</button>' +
+      '<h1>\uD83D\uDEF8 Back to HQ\u2026</h1>' +
+      '<p>' + scoreMsg + '</p>' +
+      '<p>Levels completed: ' + levelsCompleted + ' &nbsp;&bull;&nbsp; Set ' + setsCompletedToday + '\u200A/\u200A' + setsTarget + ' today</p>' +
+      '<p style="font-size:1em;color:#9fd8ff;">Tip: fly fast, then beam a cow &mdash; level score jumps in bigger chunks!</p>' +
+      '<button class="dxtr-btn dxtr-btn-primary" onclick="document.dispatchEvent(new CustomEvent(\'dxtr-play-again\'))">Try Again</button>' +
       '<button class="dxtr-btn dxtr-btn-secondary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
     );
   }
 
   async function onVictory() {
     state = "victory";
+    if (ariaLiveInterval) { clearInterval(ariaLiveInterval); ariaLiveInterval = null; }
     highestLevelCompleted = 10;
     await submitSetResults(10);
     showDxtrOverlay(
-      '<h1>Congratulations!</h1>' +
-      '<p>You completed all 10 levels! Score: ' + score + '</p>' +
-      '<p>Set ' + setsCompletedToday + ' / ' + setsTarget + ' completed today</p>' +
+      '<h1>\uD83C\uDF1F Galactic Promotion!</h1>' +
+      '<p>All 10 levels complete! Session score: <strong>' + sessionSpeedScore + '</strong></p>' +
+      '<p>Cows abducted: ' + score + ' &nbsp;&bull;&nbsp; Set ' + setsCompletedToday + '\u200A/\u200A' + setsTarget + ' today</p>' +
+      '<p style="font-size:1em;color:#9fd8ff;">Nice haul, Commander. The mothership is proud.</p>' +
       '<button class="dxtr-btn dxtr-btn-primary" onclick="document.dispatchEvent(new CustomEvent(\'dxtr-play-again\'))">Play Again</button>' +
       '<button class="dxtr-btn dxtr-btn-secondary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
     );
@@ -949,8 +1284,8 @@
   document.addEventListener("dxtr-play-again", function () {
     if (setsCompletedToday >= setsTarget) {
       showDxtrOverlay(
-        '<h1>All Done!</h1>' +
-        '<p>You\'ve completed all ' + setsTarget + ' sets for today!</p>' +
+        '<h1>\u2705 All Done!</h1>' +
+        '<p>You\'ve completed all ' + setsTarget + ' sets for today. Great work!</p>' +
         '<button class="dxtr-btn dxtr-btn-primary" onclick="window.parent.postMessage({type:\'gameComplete\'},\'*\')">Back to Missions</button>'
       );
     } else {
@@ -962,11 +1297,12 @@
   // ── Draw ──────────────────────────────────────────────────────────────────────
   function draw() {
     ctx.clearRect(0, 0, W, H);
-    if      (state === "loading")  drawLoading();
-    else if (state === "start")    drawStart();
-    else if (state === "playing")  drawGame();
-    else if (state === "gameover") drawGameOverCanvas();
-    else if (state === "victory")  drawVictoryCanvas();
+    if      (state === "loading")    drawLoading();
+    else if (state === "start")      drawStart();
+    else if (state === "playing")    drawGame();
+    else if (state === "levelBreak") drawLevelBreak();
+    else if (state === "gameover")   drawGameOverCanvas();
+    else if (state === "victory")    drawVictoryCanvas();
   }
 
   function drawLoading() {
@@ -979,30 +1315,60 @@
   }
 
   function drawStart() {
-    ctx.fillStyle = COLORS.black;
+    // Dark starfield background
+    ctx.fillStyle = '#0a0e1a';
     ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = COLORS.white;
-    ctx.textAlign = "center";
-    ctx.font = "22px sans-serif";
+
+    ctx.textAlign = 'center';
+
+    // Title
+    ctx.font = 'bold 40px sans-serif';
+    ctx.fillStyle = '#5BB5CF';
+    ctx.fillText('\u{1F6F8} ALIEN ABDUCTION', W / 2, 82);
+
+    ctx.font = 'bold 16px sans-serif';
+    ctx.fillStyle = '#c8eaf5';
+    ctx.fillText("You're behind on your weekly abduction quota!", W / 2, 115);
+
+    // Instructions panel
+    ctx.fillStyle = 'rgba(8, 12, 30, 0.78)';
+    ctx.strokeStyle = 'rgba(91, 181, 207, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(W / 2 - 290, 135, 580, 252, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillStyle = '#9fd8ff';
+    ctx.fillText('H O W  T O  P L A Y', W / 2, 162);
+
     var controlHint = esp32Connected
-      ? "Squeeze the controller to activate the tractor beam."
-      : "Press SPACE to stop and activate the tractor beam.";
-    var startHint = esp32Connected
-      ? "Squeeze to start..."
-      : "Press any key to start...";
-    const lines = [
-      "Welcome, Alien Abductor!",
-      "You're behind on your weekly quota of abductions.",
-      "Help the alien catch up by abducting targets on Earth!",
-      "",
-      "The UFO flies on its own.",
+      ? 'Squeeze your DXTR controller to fire the tractor beam.'
+      : 'Hold SPACE to fire the tractor beam.';
+
+    var lines = [
+      'The UFO flies on its own across the sky.',
       controlHint,
-      "Cows in the beam get sucked up! Release to fly again.",
-      "",
-      startHint,
+      'Position the beam over a cow \u2014 it gets sucked up!',
+      '',
+      '\u26A1 Score only when you beam up a cow — more if you were flying fast!',
+      'Abduct all the cows before time runs out to advance.',
     ];
-    let y = H / 5;
-    for (const line of lines) { ctx.fillText(line, W / 2, y); y += 35; }
+    var y = 193;
+    for (var li = 0; li < lines.length; li++) {
+      if (lines[li] === '') { y += 14; continue; }
+      ctx.font = lines[li].startsWith('\u26A1') ? 'bold 16px sans-serif' : '16px sans-serif';
+      ctx.fillStyle = lines[li].startsWith('\u26A1') ? '#5BB5CF' : '#ffffff';
+      ctx.fillText(lines[li], W / 2, y);
+      y += 32;
+    }
+
+    // Start prompt
+    ctx.font = 'bold 21px sans-serif';
+    ctx.fillStyle = '#5BB5CF';
+    var startHint = esp32Connected ? 'Squeeze to start\u2026' : 'Press any key to start\u2026';
+    ctx.fillText(startHint, W / 2, 430);
   }
 
   function drawImageCover(img, x, y, w, h) {
@@ -1011,6 +1377,25 @@
     const cw = w / scale, ch = h / scale;
     const sx = (iw - cw) / 2, sy = (ih - ch) / 2;
     ctx.drawImage(img, sx, sy, cw, ch, x, y, w, h);
+  }
+
+  /** Sprite is authored facing right; mirror when walking left. */
+  function drawCowSprite(cow) {
+    const faceRight = cow.facingRight !== false;
+    if (!cowImg) {
+      ctx.fillStyle = "#8B4513";
+      ctx.fillRect(cow.x, cow.y, cow.w, cow.h);
+      return;
+    }
+    if (faceRight) {
+      ctx.drawImage(cowImg, cow.x, cow.y, cow.w, cow.h);
+    } else {
+      ctx.save();
+      ctx.translate(cow.x + cow.w, cow.y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(cowImg, 0, 0, cow.w, cow.h);
+      ctx.restore();
+    }
   }
 
   function drawGame() {
@@ -1038,15 +1423,13 @@
     }
 
     for (const t of targets) {
-      if (cowImg) ctx.drawImage(cowImg, t.x, t.y, t.w, t.h);
-      else { ctx.fillStyle = "#8B4513"; ctx.fillRect(t.x, t.y, t.w, t.h); }
+      drawCowSprite(t);
     }
 
     for (const cow of sucking) {
       ctx.save();
       if (cow.fading) ctx.globalAlpha = Math.max(0, cow.alpha);
-      if (cowImg) ctx.drawImage(cowImg, cow.x, cow.y, cow.w, cow.h);
-      else { ctx.fillStyle = "#8B4513"; ctx.fillRect(cow.x, cow.y, cow.w, cow.h); }
+      drawCowSprite(cow);
       ctx.restore();
     }
 
@@ -1054,24 +1437,200 @@
   }
 
   function drawHud() {
-    ctx.textAlign = "left";
-    ctx.font = "bold 22px sans-serif";
-    const y = 10, spacing = 75;
-    let x = 10;
-    const items = [
-      { label: `Score: ${score}`,                               color: COLORS.orange    },
-      { label: `Level: ${currentLevel}`,                        color: COLORS.lightBlue },
-      { label: `Time: ${Math.ceil(countdownTimer)}`,            color: COLORS.red       },
-      { label: `Abductions: ${currentScore}/${abductionTarget}`, color: COLORS.gray     },
+    var lowTime  = countdownTimer <= 10;
+    var timeLeft = Math.ceil(countdownTimer);
+    var cowsLeft = Math.max(0, abductionTarget - currentScore);
+    var pad      = 10;
+    var boxTop   = 8;
+    var boxH     = 76;
+    var blockW   = Math.floor(W / 3);
+    var stats = [
+      {
+        label: '\u23F1  TIME LEFT',
+        value: timeLeft + 's' + (lowTime ? ' \u2014 LOW!' : ''),
+        urgent: lowTime,
+        bg: lowTime ? 'rgba(185, 45, 45, 0.35)' : 'rgba(255, 107, 74, 0.22)',
+        border: lowTime ? 'rgba(255, 160, 140, 0.85)' : 'rgba(255, 140, 110, 0.65)',
+        labelColor: lowTime ? '#ffd4cf' : '#ffb4a8',
+        valueColor: '#ffffff',
+      },
+      {
+        label: '\uD83D\uDC04  COWS LEFT',
+        value: String(cowsLeft),
+        urgent: false,
+        bg: 'rgba(52, 211, 153, 0.22)',
+        border: 'rgba(110, 231, 183, 0.7)',
+        labelColor: '#a7f3d0',
+        valueColor: '#ecfdf5',
+      },
+      {
+        label: '\u2B50  LEVEL SCORE',
+        value: String(levelSpeedScore),
+        urgent: false,
+        isScore: true,
+        bg: 'rgba(250, 204, 21, 0.2)',
+        border: 'rgba(253, 224, 71, 0.75)',
+        labelColor: '#fde047',
+        valueColor: '#fef9c3',
+      },
     ];
-    for (const item of items) {
-      const tw = ctx.measureText(item.label).width;
-      ctx.fillStyle = item.color;
-      ctx.fillRect(x - 5, y - 2, tw + 10, 28);
-      ctx.fillStyle = COLORS.white;
-      ctx.fillText(item.label, x, y + 20);
-      x += tw + spacing;
+
+    ctx.save();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    stats.forEach(function(stat, i) {
+      var bx = i * blockW + pad / 2;
+      var bw = blockW - pad;
+      var cx = bx + bw / 2;
+      var cy = boxTop + boxH / 2;
+
+      if (stat.isScore && scorePop > 0 && !prefersReducedMotion) {
+        ctx.fillStyle = 'rgba(253, 224, 71, ' + (0.08 + (scorePop / 20) * 0.35) + ')';
+        ctx.beginPath();
+        ctx.roundRect(bx - 2, boxTop - 2, bw + 4, boxH + 4, 12);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = stat.bg;
+      ctx.strokeStyle = stat.border;
+      ctx.lineWidth = lowTime && i === 0 ? 2.5 : 2;
+      ctx.beginPath();
+      ctx.roundRect(bx, boxTop, bw, boxH, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = 'bold 15px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = stat.labelColor;
+      ctx.fillText(stat.label, cx, cy - 22);
+
+      ctx.font = '900 46px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = stat.valueColor;
+      if (stat.urgent) ctx.fillStyle = '#ffffff';
+      ctx.fillText(stat.value, cx, cy + 20);
+    });
+
+    ctx.textBaseline = 'alphabetic';
+
+    if (scorePop > 0 && lastScoreBonus > 0 && !prefersReducedMotion) {
+      var popAlpha = scorePop / 20;
+      var scoreCx = 2 * blockW + blockW / 2;
+      var popY = boxTop - 6 - (20 - scorePop) * 1.2;
+      ctx.save();
+      ctx.globalAlpha = popAlpha;
+      ctx.font = '900 22px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = '#fde047';
+      ctx.textAlign = 'center';
+      ctx.fillText('+' + lastScoreBonus, scoreCx, popY);
+      ctx.restore();
     }
+
+    if (scorePop > 0) scorePop--;
+
+    ctx.restore();
+  }
+
+  function drawLevelBreak() {
+    // Freeze the current game frame then draw overlay on top
+    if (skyBg) drawImageCover(skyBg, 0, 0, W, H);
+    else { ctx.fillStyle = '#0a0e1a'; ctx.fillRect(0, 0, W, H); }
+    if (grassOverlay) drawImageCover(grassOverlay, 0, 0, W, H);
+
+    // Dim overlay
+    ctx.fillStyle = 'rgba(4, 8, 20, 0.82)';
+    ctx.fillRect(0, 0, W, H);
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // ── Header ──────────────────────────────────────────────────────────────
+    ctx.font = '900 48px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = '#5BB5CF';
+    ctx.fillText('\uD83C\uDF1F Level ' + currentLevel + ' Complete!', W / 2, 105);
+
+    // ── Stats row ────────────────────────────────────────────────────────────
+    var pad = 12, boxH = 72, boxY = 155, blockW = Math.floor(W / 3);
+    var summaryBoxes = [
+      { label: 'LEVEL SCORE', value: String(levelSpeedScore), color: '#fde047', border: 'rgba(253,224,71,.7)' },
+      { label: 'COWS ABDUCTED', value: String(currentScore), color: '#6ee7b7', border: 'rgba(110,231,183,.7)' },
+      { label: 'SESSION TOTAL', value: String(sessionSpeedScore), color: '#93c5fd', border: 'rgba(147,197,253,.7)' },
+    ];
+    summaryBoxes.forEach(function(box, i) {
+      var bx = i * blockW + pad / 2;
+      var bw = blockW - pad;
+      var cx = bx + bw / 2;
+      ctx.fillStyle = 'rgba(12, 20, 44, 0.78)';
+      ctx.strokeStyle = box.border;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(bx, boxY, bw, boxH, 10);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = 'bold 13px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = box.color;
+      ctx.fillText(box.label, cx, boxY + 22);
+      ctx.font = '900 34px ui-sans-serif, system-ui, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(box.value, cx, boxY + 52);
+    });
+
+    // ── Next level preview ───────────────────────────────────────────────────
+    ctx.font = 'bold 22px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = '#c8eaf5';
+    ctx.fillText(
+      'Next up: Level ' + pendingNextLevel + ' \u2014 abduct ' + (pendingNextLevel * 10) + ' cows in 60 s',
+      W / 2, 270
+    );
+
+    // ── Continue button ──────────────────────────────────────────────────────
+    var btnW = 380, btnH = 60, btnX = (W - btnW) / 2, btnY = 310;
+    ctx.fillStyle = '#5BB5CF';
+    ctx.strokeStyle = 'rgba(91,181,207,0)';
+    ctx.lineWidth = 0;
+    ctx.beginPath();
+    ctx.roundRect(btnX, btnY, btnW, btnH, 14);
+    ctx.fill();
+
+    ctx.font = '900 26px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = '#0a1628';
+    ctx.fillText('\u25B6  Continue to Level ' + pendingNextLevel, W / 2, btnY + btnH / 2 + 1);
+
+    // ── Input prompt (device-aware) ──────────────────────────────────────────
+    ctx.font = 'bold 20px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = '#ffffff';
+    var continueHint = esp32Connected
+      ? '\uD83D\uDC4B Squeeze your DXTR controller to continue'
+      : '\u2423 Press SPACE to continue';
+    ctx.fillText(continueHint, W / 2, 400);
+
+    // ── Separator ────────────────────────────────────────────────────────────
+    ctx.strokeStyle = 'rgba(173,216,230,0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - 220, 432);
+    ctx.lineTo(W / 2 + 220, 432);
+    ctx.stroke();
+
+    // ── Exit section ─────────────────────────────────────────────────────────
+    var exitBtnW = 220, exitBtnH = 46, exitBtnX = (W - exitBtnW) / 2, exitBtnY = 445;
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(exitBtnX, exitBtnY, exitBtnW, exitBtnH, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = 'bold 18px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(230,230,255,0.7)';
+    ctx.fillText('\u274C  Exit session', W / 2, exitBtnY + exitBtnH / 2 + 1);
+
+    ctx.font = '14px ui-sans-serif, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(173,216,230,0.5)';
+    ctx.fillText('Press E or Esc to exit', W / 2, exitBtnY + exitBtnH + 18);
+
+    ctx.textBaseline = 'alphabetic';
   }
 
   function drawGameOverCanvas() {

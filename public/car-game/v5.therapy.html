@@ -147,6 +147,71 @@
       outline-offset: 3px;
     }
 
+    /* ===== CALIBRATION OVERLAY ===== */
+    #calibration-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      z-index: 500;
+      background: linear-gradient(160deg, #FFFFFF 0%, #f5f3f0 50%, #FFFFFF 100%);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #6B5344;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      text-align: center;
+    }
+
+    #calibration-overlay h1 {
+      font-size: 2.4em;
+      margin-bottom: 0.2em;
+      color: #6B5344;
+    }
+
+    #calibration-overlay .calib-subtitle {
+      font-size: 1.15em;
+      color: #8B7355;
+      margin-bottom: 1.8em;
+    }
+
+    .calib-image-placeholder {
+      width: 400px;
+      max-width: 90vw;
+      height: 250px;
+      border: 2px dashed #ccc;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #bbb;
+      font-size: 1em;
+      margin-bottom: 1.6em;
+      gap: 8px;
+    }
+
+    .calib-image-placeholder span.calib-icon { font-size: 2.5em; }
+
+    .calib-reading {
+      font-size: 1.2em;
+      color: #6B5344;
+      margin-bottom: 1.4em;
+    }
+
+    .calib-reading strong { font-size: 1.6em; }
+
+    .calib-countdown-text {
+      font-size: 1.3em;
+      color: #8B7355;
+      font-weight: bold;
+    }
+
+    .calib-countdown-text span {
+      font-size: 1.5em;
+      color: #5BB5CF;
+    }
+
     /* ===== IN-GAME OVERLAYS ===== */
     #therapy-video {
       position: absolute;
@@ -329,25 +394,41 @@
       top: 10px;
       left: 10px;
       z-index: 50;
-      background-color: rgba(255, 255, 255, 0.95);
-      padding: 8px 15px;
+      background-color: rgba(0, 0, 0, 0.85);
+      padding: 12px 16px;
       border: 2px solid #7BC47F;
-      border-radius: 8px;
-      font-size: 0.9em;
-      font-weight: bold;
-      color: #3a7a3e;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      border-radius: 10px;
+      font-size: 0.8em;
+      color: #e0e0e0;
+      font-family: "Courier New", monospace;
       display: none;
+      min-width: 160px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
     }
 
     #esp32-game-status.disconnected {
-      background-color: rgba(255, 255, 255, 0.95);
-      border-color: #ccc;
+      background-color: rgba(0, 0, 0, 0.85);
+      border-color: #666;
       color: #999;
     }
 
-    #esp32-game-roll {
-      font-size: 1.1em;
+    #esp32-game-status.connected {
+      border-color: #7BC47F;
+      color: #e0e0e0;
+    }
+
+    #esp32-game-roll,
+    #esp32-pitch,
+    #esp32-yaw,
+    #esp32-baseline,
+    #esp32-adjusted,
+    #esp32-lthresh,
+    #esp32-rthresh,
+    #esp32-deadzone,
+    #esp32-phase {
+      font-weight: bold;
+      color: #5BB5CF;
     }
 
     /* ===== CRASH OVERLAY ===== */
@@ -457,6 +538,22 @@
     <button id="overlay-skip" onclick="skipConnection()">Continue without device</button>
   </div>
 
+  <!-- ===== CALIBRATION OVERLAY (shown after connection, before game) ===== -->
+  <div id="calibration-overlay">
+    <h1>&#x1F3CE; Calibrate Controller</h1>
+    <p class="calib-subtitle">Hold your arm straight with your palm facing down, then wait for the countdown.</p>
+    <div class="calib-image-placeholder">
+      <span class="calib-icon">📷</span>
+      <span>Calibration image goes here</span>
+    </div>
+    <div class="calib-reading">
+      Current angle: <strong><span id="calib-roll-display">--</span>°</strong>
+    </div>
+    <div class="calib-countdown-text">
+      Proceeding in <span id="calib-countdown">5</span>s&hellip;
+    </div>
+  </div>
+
   <!-- ===== DIFFICULTY ADJUSTMENT TOAST ===== -->
   <div id="difficulty-toast"></div>
 
@@ -488,16 +585,34 @@
     <span id="currentLeftThreshold">15</span>
     <span id="currentRightThreshold">-15</span>
     <span id="currentDeadZone">5</span>
-    <input id="leftThreshold" type="hidden" value="15">
+    <input id="leftThreshold" type="hidden" value="20">
     <input id="rightThreshold" type="hidden" value="15">
     <input id="deadZone" type="hidden" value="5">
   </div>
 
   <!-- ===== GAME AREA (hidden until connected) ===== -->
   <div id="racer" style="display:none;">
-    <!-- ESP32 In-Game Status -->
+    <!-- ESP32 In-Game Status (Serial Monitor) -->
     <div id="esp32-game-status" class="disconnected">
-      ESP32: <span id="esp32-game-roll">--</span>
+      <div style="font-weight:bold; margin-bottom:6px;">🔌 ESP32 Monitor</div>
+      <div style="font-size:0.85em; line-height:1.5;">
+        <div style="border-bottom:1px solid rgba(255,255,255,0.3); padding-bottom:6px; margin-bottom:6px;">
+          <div>Roll: <span id="esp32-game-roll">--</span>°</div>
+          <div>Pitch: <span id="esp32-pitch">--</span>°</div>
+          <div>Yaw: <span id="esp32-yaw">--</span>°</div>
+        </div>
+        <div>Baseline: <span id="esp32-baseline">0.0</span>°</div>
+        <div>Adjusted: <span id="esp32-adjusted">--</span>°</div>
+        <div style="border-top:1px solid rgba(255,255,255,0.3); margin:6px 0; padding-top:6px;">
+          <div>L-Thresh: <span id="esp32-lthresh">15</span>°</div>
+          <div>R-Thresh: <span id="esp32-rthresh">15</span>°</div>
+          <div>DeadZone: <span id="esp32-deadzone">5</span>°</div>
+        </div>
+        <div style="border-top:1px solid rgba(255,255,255,0.3); margin:6px 0; padding-top:6px;">
+          <div>Phase: <span id="esp32-phase">connect</span></div>
+          <div>Trigger: <span id="esp32-direction">--</span></div>
+        </div>
+      </div>
     </div>
 
     <!-- Set Counter (top left, below ESP32 status) -->
@@ -583,8 +698,8 @@
         var success = await connectESP32();
         if (success) {
           status.className = 'connected';
-          status.innerHTML = 'Connected via USB! Starting game...';
-          setTimeout(launchGame, 600);
+          status.innerHTML = 'Connected via USB! Calibrating...';
+          setTimeout(showCalibrationScreen, 600);
         } else {
           status.className = 'error';
           status.innerHTML = 'Connection failed. Please try again.';
@@ -614,8 +729,8 @@
         var success = await connectESP32BLE();
         if (success) {
           status.className = 'connected';
-          status.innerHTML = 'Connected via Bluetooth! Starting game...';
-          setTimeout(launchGame, 600);
+          status.innerHTML = 'Connected via Bluetooth! Calibrating...';
+          setTimeout(showCalibrationScreen, 600);
         } else {
           status.className = 'error';
           status.innerHTML = 'Bluetooth connection failed. Please try again.';
@@ -632,6 +747,38 @@
       launchGame();
     }
 
+    //=========================================================================
+    // CALIBRATION SCREEN
+    //=========================================================================
+
+    function showCalibrationScreen() {
+      document.getElementById('connection-overlay').style.display = 'none';
+      document.getElementById('calibration-overlay').style.display = 'flex';
+      updateESP32Phase('calibrating');
+      startCalibCountdown();
+    }
+
+    function startCalibCountdown() {
+      var remaining = CALIB_COUNTDOWN_SECS;
+      document.getElementById('calib-countdown').textContent = remaining;
+      calibCountdownId = setInterval(function() {
+        remaining -= 1;
+        document.getElementById('calib-countdown').textContent = remaining;
+        if (remaining <= 0) {
+          clearInterval(calibCountdownId);
+          calibCountdownId = null;
+          proceedCalibration();
+        }
+      }, 1000);
+    }
+
+    function proceedCalibration() {
+      pitchBaseline = currentPitch;
+      document.getElementById('calibration-overlay').style.display = 'none';
+      updateESP32Phase('playing');
+      launchGame();
+    }
+
     (async function initConnection() {
       var status = document.getElementById('overlay-status');
       status.className = 'connecting';
@@ -642,7 +789,7 @@
       if (ok) {
         status.className = 'connected';
         status.innerHTML = 'Controller connected!';
-        setTimeout(launchGame, 600);
+        setTimeout(showCalibrationScreen, 600);
       } else {
         status.innerHTML = '';
         setOverlayButtonsDisabled(false);
@@ -697,6 +844,18 @@
 
       // Reset rep results for new set
       repResults = [];
+
+      // Reset all game state for a fresh session
+      position = 0;
+      speed = 0;
+      gameTime = 0;
+      autoSpeed = null;
+      playerX = -0.5;
+      crashTime = null;
+      if (crashTimeoutId) { clearTimeout(crashTimeoutId); crashTimeoutId = null; }
+      document.getElementById('crash-overlay').style.display = 'none';
+
+      resetCars();
     }
 
     function resizeCanvasToWindow() {
@@ -752,7 +911,7 @@
     var nextObstacleZ     = null;                 // z position of next therapy obstacle
     var promptDistance    = 10000;                 // distance at which to show video prompt (gives more reaction time)
     var dodgeStartTime    = null;                 // when dodge animation started
-    var dodgeDuration     = 1;                  // total dodge duration in seconds
+    var dodgeDuration     = 0.35;               // total dodge duration in seconds
     var dodgeDirection    = null;                 // direction of current dodge
     var dodgeStartX       = 0;                    // player X position when dodge started
     var autoSpeed         = null;                 // constant automatic speed (set after maxSpeed is computed)
@@ -761,7 +920,7 @@
     var obstaclePhase     = 'approaching';        // 'approaching', 'passing', 'blocking'
     var crashTime         = null;
     var crashTimeoutId    = null;
-    var warmupDurationMs  = 4000;                  // open-road warm-up before first obstacle (ms)
+    var warmupDurationMs  = 2000;                  // open-road warm-up before first obstacle (ms)
 
     //=========================================================================
     // DAILY PROGRESS TRACKING
@@ -812,19 +971,30 @@
       } catch (e) { console.warn('sendModeCommand failed:', e); }
     }
 
-    window.addEventListener('beforeunload', function() {
-      if (esp32Connected) sendModeCommand('idle');
-    });
+    function cleanupSerialOnUnload() {
+      try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
+      // Fire-and-forget: must release the SerialPort before the iframe is destroyed,
+      // otherwise the next game's requestPort() returns an already-open port.
+      try { if (esp32Reader) { esp32Reader.cancel().catch(() => {}); esp32Reader = null; } } catch (_) {}
+      try { if (esp32Port)   { esp32Port.close().catch(() => {});    esp32Port   = null; } } catch (_) {}
+    }
+    window.addEventListener('pagehide',     cleanupSerialOnUnload);
+    window.addEventListener('beforeunload', cleanupSerialOnUnload);
 
     // Threshold configuration (degrees)
-    var leftThreshold     = Util.toInt(Dom.storage.leftThreshold, 15);
+    var leftThreshold     = Util.toInt(Dom.storage.leftThreshold, 20);
     var rightThreshold    = Util.toInt(Dom.storage.rightThreshold, 15);
     var deadZone          = Util.toInt(Dom.storage.deadZone, 5);
 
     // Current sensor values
     var currentRoll       = 0;
-    var smoothedRoll      = 0;
-    var smoothingFactor   = 0.3;
+    var currentPitch      = 0;
+    var currentYaw        = 0;
+
+    // Calibration baseline (captured at neutral position before game starts)
+    var pitchBaseline     = 0;
+    var CALIB_COUNTDOWN_SECS = 5;  // seconds to hold before baseline is recorded
+    var calibCountdownId  = null;
 
     // ESP32 control state
     var esp32ControlActive = false;
@@ -882,6 +1052,7 @@
         }
 
         connectionType = null;
+        pitchBaseline = 0;
         updateESP32Status('disconnected', 'Disconnected');
         updateConnectButton(false);
         updateRollDisplay(0);
@@ -979,7 +1150,8 @@
       var value = event.target.value; // DataView
       var text = new TextDecoder().decode(value);
       if (text && text.length > 0) {
-        parseESP32Data(text.trim());
+        esp32Buffer += text;
+        processESP32Buffer();
       }
     }
 
@@ -988,6 +1160,7 @@
       esp32Connected = false;
       connectionType = null;
       bleCharacteristic = null;
+      pitchBaseline = 0;
       updateESP32Status('disconnected', 'BLE Disconnected');
       updateConnectButton(false);
       updateRollDisplay(0);
@@ -1026,47 +1199,121 @@
     }
 
     function processESP32Buffer() {
-      // Process complete lines (newline-delimited JSON)
+      // Process newline-delimited lines
       var lines = esp32Buffer.split('\n');
-      
-      // Keep incomplete line in buffer
       esp32Buffer = lines.pop();
-      
-      // Process complete lines
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim();
-        if (line.length > 0) {
-          parseESP32Data(line);
-        }
+        if (line.length > 0) parseESP32Data(line);
+      }
+
+      // Also flush if remaining buffer is already a complete JSON object
+      var remaining = esp32Buffer.trim();
+      if (remaining.startsWith('{') && remaining.endsWith('}')) {
+        parseESP32Data(remaining);
+        esp32Buffer = '';
       }
     }
 
     function parseESP32Data(jsonString) {
       try {
         var data = JSON.parse(jsonString);
-        
+
+        // Ignore hardware-calibration packets (no movement fields)
+        if (data.calibrating) return;
+
         if (typeof data.roll === 'number') {
           currentRoll = data.roll;
-          
-          // Apply exponential moving average smoothing
-          smoothedRoll = smoothedRoll * (1 - smoothingFactor) + currentRoll * smoothingFactor;
-          
-          // Update displays
-          updateRollDisplay(smoothedRoll);
-          
-          // Check thresholds and trigger controls
-          checkRollThresholds(smoothedRoll);
+        }
+
+        if (typeof data.pitch === 'number') {
+          currentPitch = data.pitch;
+          // Gameplay-critical: must run on every packet
+          checkRollThresholds(currentPitch);
+        }
+
+        if (typeof data.yaw === 'number') {
+          currentYaw = data.yaw;
         }
       } catch (error) {
         // Ignore invalid JSON lines (common during startup)
       }
     }
 
+    // No-ops — kept for compatibility with init/reset callers; the RAF loop
+    // (sensorDisplayLoop) writes all live values directly to DOM at ~60Hz.
+    function updateESP32Monitor(_pitch) {}
+    function updateRollDisplay(_roll) {}
+
+    (function sensorDisplayLoop() {
+      var lastRollText = null, lastPitchText = null, lastYawText = null;
+      var lastBaseText = null, lastAdjText = null, lastDirText = null;
+      var lastMarkerPct = null;
+      var lastLThresh = null, lastRThresh = null, lastDeadZone = null;
+      var lastCalibAngle = null;
+
+      function tick() {
+        var rollStr  = currentRoll.toFixed(1);
+        var pitchStr = currentPitch.toFixed(1);
+        var yawStr   = currentYaw.toFixed(1);
+        var baseStr  = pitchBaseline.toFixed(1);
+        var adj      = currentPitch - pitchBaseline;
+        var adjStr   = isNaN(adj) ? '--' : adj.toFixed(1);
+
+        // ESP32 monitor panel
+        var elPitch    = document.getElementById('esp32-pitch');
+        var elYaw      = document.getElementById('esp32-yaw');
+        var elBase     = document.getElementById('esp32-baseline');
+        var elAdj      = document.getElementById('esp32-adjusted');
+        var elLT       = document.getElementById('esp32-lthresh');
+        var elRT       = document.getElementById('esp32-rthresh');
+        var elDZ       = document.getElementById('esp32-deadzone');
+        if (elPitch && pitchStr   !== lastPitchText) { elPitch.textContent = pitchStr;   lastPitchText = pitchStr; }
+        if (elYaw   && yawStr     !== lastYawText)   { elYaw.textContent   = yawStr;     lastYawText   = yawStr; }
+        if (elBase  && baseStr    !== lastBaseText)  { elBase.textContent  = baseStr;    lastBaseText  = baseStr; }
+        if (elAdj   && adjStr     !== lastAdjText)   { elAdj.textContent   = adjStr;     lastAdjText   = adjStr; }
+        if (elLT    && leftThreshold  !== lastLThresh) { elLT.textContent = leftThreshold;  lastLThresh = leftThreshold; }
+        if (elRT    && rightThreshold !== lastRThresh) { elRT.textContent = rightThreshold; lastRThresh = rightThreshold; }
+        if (elDZ    && deadZone       !== lastDeadZone){ elDZ.textContent = deadZone;       lastDeadZone = deadZone; }
+
+        // Roll panel + marker
+        var elRollVal = document.getElementById('roll-value');
+        if (elRollVal && rollStr !== lastRollText) { elRollVal.innerHTML = rollStr; lastRollText = rollStr; }
+        var markerPct = Math.max(0, Math.min(100, 50 + (currentRoll / 45) * 50));
+        var elMarker = document.getElementById('roll-marker');
+        if (elMarker && markerPct !== lastMarkerPct) { elMarker.style.left = markerPct + '%'; lastMarkerPct = markerPct; }
+
+        // In-game roll display with directional indicator
+        if (esp32Connected) {
+          var dirIndicator = '';
+          if (currentRoll > leftThreshold)        dirIndicator = ' [RIGHT]';
+          else if (currentRoll < -rightThreshold) dirIndicator = ' [LEFT]';
+          var dirText = rollStr + '°' + dirIndicator;
+          var elGameRoll = document.getElementById('esp32-game-roll');
+          if (elGameRoll && dirText !== lastDirText) { elGameRoll.innerHTML = dirText; lastDirText = dirText; }
+        }
+
+        // Calibration overlay live angle (only when overlay visible)
+        var calibOverlay = document.getElementById('calibration-overlay');
+        if (calibOverlay && calibOverlay.style.display !== 'none') {
+          var elCalib = document.getElementById('calib-roll-display');
+          if (elCalib && pitchStr !== lastCalibAngle) { elCalib.textContent = pitchStr; lastCalibAngle = pitchStr; }
+        }
+
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    })();
+
+    function updateESP32Phase(newPhase) {
+      document.getElementById('esp32-phase').textContent = newPhase;
+    }
+
     //=========================================================================
     // THRESHOLD CHECKING AND CONTROL INTEGRATION
     //=========================================================================
 
-    function checkRollThresholds(roll) {
+    function checkRollThresholds(pitch) {
       // Only trigger controls when showing prompt and waiting for input
       if (therapyState !== 'showing_prompt') {
         lastEsp32Direction = null;
@@ -1075,15 +1322,18 @@
 
       var direction = null;
 
-      // Check if roll exceeds thresholds (outside dead zone)
-      if (roll > leftThreshold) {
-        direction = 'left';
-      } else if (roll < -rightThreshold) {
+      if (pitch > pitchBaseline + leftThreshold) {
         direction = 'right';
-      } else if (Math.abs(roll) < deadZone) {
-        // In dead zone - reset last direction
+      } else if (pitch < pitchBaseline - rightThreshold) {
+        direction = 'left';
+      } else if (Math.abs(pitch - pitchBaseline) < deadZone) {
         lastEsp32Direction = null;
+        document.getElementById('esp32-direction').textContent = '--';
         return;
+      }
+
+      if (direction) {
+        document.getElementById('esp32-direction').textContent = direction.toUpperCase();
       }
 
       // Trigger control if direction matches expected and hasn't been triggered yet
@@ -1104,22 +1354,25 @@
     function updateESP32Status(state, text) {
       var statusEl = Dom.get('esp32-status');
       var gameStatusEl = Dom.get('esp32-game-status');
-      
+
       if (statusEl) {
         statusEl.className = state;
         statusEl.innerHTML = text;
       }
-      
+
       if (state === 'connected') {
         if (gameStatusEl) {
           gameStatusEl.style.display = 'block';
-          gameStatusEl.className = '';
+          gameStatusEl.className = 'connected';
         }
+        updateESP32Phase('connected');
       } else if (state === 'disconnected') {
         if (gameStatusEl) {
           gameStatusEl.className = 'disconnected';
           Dom.get('esp32-game-roll').innerHTML = '--';
         }
+        updateESP32Phase('disconnected');
+        pitchBaseline = 0;
       }
     }
 
@@ -1134,26 +1387,6 @@
       }
     }
 
-    function updateRollDisplay(roll) {
-      // Update panel display
-      Dom.get('roll-value').innerHTML = roll.toFixed(1);
-      
-      // Update roll indicator marker position (map -45 to +45 degrees to 0-100%)
-      var markerPos = 50 + (roll / 45) * 50;
-      markerPos = Math.max(0, Math.min(100, markerPos));
-      Dom.get('roll-marker').style.left = markerPos + '%';
-      
-      // Update in-game display
-      if (esp32Connected) {
-        var dirIndicator = '';
-        if (roll > leftThreshold) {
-          dirIndicator = ' [LEFT]';
-        } else if (roll < -rightThreshold) {
-          dirIndicator = ' [RIGHT]';
-        }
-        Dom.get('esp32-game-roll').innerHTML = roll.toFixed(1) + '&deg;' + dirIndicator;
-      }
-    }
 
     //=========================================================================
     // THRESHOLD UI HANDLERS
@@ -1237,7 +1470,7 @@
         repNumber: currentRep,
         expectedDirection: expectedDirection,
         actualDirection: direction,
-        achievedAngle: Math.round(smoothedRoll * 10) / 10,  // roll angle at dodge time
+        achievedAngle: Math.round(currentPitch * 10) / 10,  // pitch angle at dodge time
         success: isCorrect,
         reactionTimeMs: reactionMs
       });
@@ -1588,57 +1821,45 @@
           
           // Phase transitions based on obstacle position relative to player
           if (obstaclePhase === 'approaching') {
-            // Obstacle is behind, moving fast to catch up
+            // Obstacle races up from behind in the opposite lane — no swerve yet
             therapyObstacle.speed = autoSpeed * 2.0;
-            
-            // Gradually swerve toward player's lane based on distance
-            // When relativeDistance is -4000 (spawned), progress = 0
-            // When relativeDistance is -500 (near player), progress = 1
-            var swerveProgress = Math.max(0, Math.min(1.0, (-relativeDistance - 500) / 3500));
-            therapyObstacle.offset = Util.easeInOut(therapyObstacle.startOffset, therapyObstacle.targetOffset, swerveProgress);
-            
-            // Transition to passing when obstacle reaches player
-            if (relativeDistance >= -500) {
+            therapyObstacle.offset = therapyObstacle.startOffset;
+
+            // Once it clears the player, transition to cut-in
+            if (relativeDistance >= 0) {
               obstaclePhase = 'passing';
             }
           }
           else if (obstaclePhase === 'passing') {
-            // Obstacle is passing the player
+            // Obstacle is ahead and now cutting into the player's lane
             therapyObstacle.speed = autoSpeed * 2;
-            
-            // Continue swerving into player's lane
-            // Calculate overall progress from spawn (-4000) to well ahead (2000)
-            // Total distance = 6000, so progress = (relativeDistance + 4000) / 6000
-            var totalProgress = Math.max(0, Math.min(1.0, (relativeDistance + 4000) / 6000));
-            therapyObstacle.offset = Util.easeInOut(therapyObstacle.startOffset, therapyObstacle.targetOffset, totalProgress);
-            
-            // Transition to blocking when obstacle is well ahead
-            if (relativeDistance >= 10000) {
+
+            // Swerve from opposite lane into player's lane as it pulls away
+            // progress = 0 when 500 ahead, 1.0 when 4000 ahead
+            var swerveProgress = Math.max(0, Math.min(1.0, (relativeDistance - 500) / 3500));
+            therapyObstacle.offset = Util.easeInOut(therapyObstacle.startOffset, therapyObstacle.targetOffset, swerveProgress);
+
+            // Transition to blocking once swerve is complete
+            if (relativeDistance >= 4000) {
               obstaclePhase = 'blocking';
-              therapyObstacle.speed = autoSpeed * 0.15; // Slow down significantly
-              therapyObstacle.offset = therapyObstacle.targetOffset; // Ensure it's in the player's lane
+              therapyObstacle.offset = therapyObstacle.targetOffset;
             }
           }
           else if (obstaclePhase === 'blocking') {
-            // Obstacle is ahead and slowing down - player needs to dodge
-            therapyObstacle.speed = autoSpeed * 0.15; // Very slow (nearly stopped)
-            
-            // Obstacle stays in the lane it swerved into (player's original lane)
+            // Obstacle cruises just ahead of the player — no crash, give time to dodge
             therapyObstacle.offset = therapyObstacle.targetOffset;
-            
-            // Show prompt when player is approaching the blocked obstacle
-            if (therapyState === 'cruising' && relativeDistance <= promptDistance && relativeDistance > 800) {
-              therapyState = 'showing_prompt';
-              showTherapyVideo(expectedDirection);
+
+            // Pacer logic: slow down to let player close in, speed up if they get too close
+            if (relativeDistance < 400) {
+              therapyObstacle.speed = autoSpeed * 1.1; // pull away slightly
+            } else {
+              therapyObstacle.speed = autoSpeed * 0.85; // coast slowly ahead
             }
 
-            // Collision detection: crash if player reaches obstacle without dodging
-            if (therapyState === 'showing_prompt' && relativeDistance <= 300 && relativeDistance > -500) {
-              var playerW = SPRITES.PLAYER_STRAIGHT.w * SPRITES.SCALE;
-              var obstacleW = therapyObstacle.sprite.w * SPRITES.SCALE;
-              if (Util.overlap(playerX, playerW, therapyObstacle.offset, obstacleW, 0.8)) {
-                triggerCrash();
-              }
+            // Show prompt as soon as blocking starts
+            if (therapyState === 'cruising' && relativeDistance <= promptDistance) {
+              therapyState = 'showing_prompt';
+              showTherapyVideo(expectedDirection);
             }
           }
         }
@@ -1653,7 +1874,7 @@
         
         if (progress <= 1.0) {
           // Smooth swerve to target lane from current position
-          playerX = Util.easeInOut(dodgeStartX, targetX, progress);
+          playerX = Util.easeOut(dodgeStartX, targetX, progress);
         }
         else {
           // Dodge complete - stay in the new lane
@@ -1953,7 +2174,10 @@
       addStraight(ROAD.LENGTH.LONG);
 
       resetSprites();
-      resetCars();
+      // Clear cars only — launchGame() will call resetCars() to start the spawn timer
+      cars = [];
+      therapyObstacle = null;
+      obstaclePhase = 'approaching';
 
       segments[findSegment(playerZ).index + 2].color = COLORS.START;
       segments[findSegment(playerZ).index + 3].color = COLORS.START;

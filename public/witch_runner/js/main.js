@@ -29,6 +29,7 @@ import {
   startMusic,
   resumeAudio,
   tickMusic,
+  tickRiseWind,
   playSfx,
 } from './music.js';
 import {
@@ -56,6 +57,69 @@ const images = new Map();
 const audioBuffers = new Map();
 
 const gripInput = new GripInput();
+
+// ── Serial monitor (raw controller messages) ──────────────────────────────
+const SERIAL_MONITOR_MAX_LINES = 120;
+const serialMonitorEl = document.getElementById('serial-monitor');
+const serialLogEl = document.getElementById('serial-monitor-log');
+const serialBtnPause = document.getElementById('serial-monitor-pause');
+const serialBtnToggle = document.getElementById('serial-monitor-toggle');
+const serialBtnClear = document.getElementById('serial-monitor-clear');
+
+const serialMonitorLines = [];
+let serialPaused = false;
+let serialOpen = true;
+
+function updateSerialMonitorButtons() {
+  if (serialBtnPause) serialBtnPause.textContent = serialPaused ? 'Resume' : 'Pause';
+  if (serialBtnToggle) serialBtnToggle.textContent = serialOpen ? 'Hide' : 'Show';
+}
+
+function appendSerialMonitorLine(raw) {
+  if (!serialMonitorEl || !serialLogEl) return;
+  if (serialPaused) return;
+  if (!serialOpen) return;
+  if (!serialMonitorEl.classList.contains('visible')) return;
+
+  const line = typeof raw === 'string' ? raw : String(raw);
+  if (!line) return;
+
+  const ts = new Date().toLocaleTimeString(undefined, { hour12: false });
+  serialMonitorLines.push('[' + ts + '] ' + line);
+  while (serialMonitorLines.length > SERIAL_MONITOR_MAX_LINES) serialMonitorLines.shift();
+  serialLogEl.textContent = serialMonitorLines.join('\n');
+}
+
+function clearSerialMonitor() {
+  serialMonitorLines.length = 0;
+  if (serialLogEl) serialLogEl.textContent = '';
+}
+
+updateSerialMonitorButtons();
+
+if (serialBtnPause) {
+  serialBtnPause.addEventListener('click', () => {
+    serialPaused = !serialPaused;
+    updateSerialMonitorButtons();
+  });
+}
+if (serialBtnToggle) {
+  serialBtnToggle.addEventListener('click', () => {
+    serialOpen = !serialOpen;
+    updateSerialMonitorButtons();
+    if (!serialOpen && serialMonitorEl) serialMonitorEl.classList.remove('visible');
+    if (serialOpen && serialMonitorEl && gripInput.connected) serialMonitorEl.classList.add('visible');
+  });
+}
+if (serialBtnClear) {
+  serialBtnClear.addEventListener('click', () => clearSerialMonitor());
+}
+
+// Receive raw serial/BLE text from GripInput
+gripInput.onRawLine = (line) => {
+  // Called frequently; keep it lightweight.
+  appendSerialMonitorLine(line);
+};
 
 let gameRunning = false;
 let patientId = 'edwin-001';
@@ -109,7 +173,8 @@ const IMAGE_URLS = [
 const AUDIO_URLS = [
   'assets/music/level_1.ogg',
   'assets/sounds/broom_fly.ogg',
-  'assets/sounds/explosion.wav',
+  'assets/sounds/potion_collect.mp4',
+  'assets/sounds/wind_rise.mp3',
 ];
 
 let dpr = 1;
@@ -188,6 +253,17 @@ async function beginGame() {
   gameRunning = true;
   sessionEnded = false;
   pendingSetEnd = false;
+
+  // Show serial monitor only when running with hardware input.
+  const wantsMonitor = gripInput.connected && (gripInput.mode === 'serial' || gripInput.mode === 'ble');
+  if (serialMonitorEl) {
+    if (wantsMonitor && serialOpen) {
+      serialMonitorEl.classList.add('visible');
+      clearSerialMonitor();
+    } else {
+      serialMonitorEl.classList.remove('visible');
+    }
+  }
 }
 
 // --- Rep / Set logic ---
@@ -276,11 +352,17 @@ on('boost_fx', () => {
 // --- Game loop ---
 
 function fixedStep() {
-  if (!ui.gameStarted || sessionEnded) return;
+  if (!ui.gameStarted) return;
+
+  if (sessionEnded) {
+    tickRiseWind(false, FIXED_DT);
+    return;
+  }
 
   gripInput.tick(FIXED_DT);
   setGripForce(gripInput.currentForce);
   updateWitch(FIXED_DT);
+  tickRiseWind(gripInput.isActivelyGripping(), FIXED_DT);
 
   // Track peak force for current rep
   if (orbs.length > 0) {

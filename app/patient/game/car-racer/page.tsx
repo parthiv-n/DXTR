@@ -26,7 +26,7 @@ export default function CarRacerPage() {
         src="/car-game/v5.therapy.html?patientId=edwin-001"
         className="w-full h-full border-0"
         title="Car Racer - DXTR Therapy Game"
-        allow="autoplay; serial"
+        allow="autoplay; serial; bluetooth"
       />
 
       {/* Floating back button - top left corner */}

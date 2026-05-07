@@ -18,6 +18,25 @@ export class GripInput {
     this._lastHardwarePacketTime = 0;
     this.connected = false;
     this.mode = null; // 'ble' | 'serial' | 'sim' | 'keyboard'
+    this._serialPort = null;
+    this._serialReader = null;
+    this._bleDevice = null;
+    this._cmdChar = null;
+    /**
+     * Optional callback for serial/BLE transport debug.
+     * If set, called with the raw incoming line (serial) or decoded text (BLE).
+     */
+    this.onRawLine = null;
+
+    // Single cleanup listener — fires when iframe is torn down (parent navigates away)
+    const cleanup = () => {
+      try { if (this.connected) this._sendModeCommand('idle'); } catch (_) {}
+      try { if (this._serialReader) { this._serialReader.cancel().catch(() => {}); this._serialReader = null; } } catch (_) {}
+      try { if (this._serialPort)   { this._serialPort.close().catch(() => {});    this._serialPort   = null; } } catch (_) {}
+      try { if (this._bleDevice && this._bleDevice.gatt && this._bleDevice.gatt.connected) { this._bleDevice.gatt.disconnect(); } } catch (_) {}
+    };
+    window.addEventListener('pagehide',     cleanup);
+    window.addEventListener('beforeunload', cleanup);
   }
 
   initKeyboard() {
@@ -34,17 +53,19 @@ export class GripInput {
     });
   }
 
-  tick(dt) {
-    let active = false;
-
+  /** True while Space is held (keyboard) or grip is active on DXTR (BLE/USB). */
+  isActivelyGripping() {
     if (this.connected && (this.mode === 'ble' || this.mode === 'serial')) {
       const fresh =
         this._lastHardwarePacketTime > 0 &&
         performance.now() - this._lastHardwarePacketTime < HARDWARE_STALE_MS;
-      active = fresh && this._rawHardwareForce >= HARDWARE_ACTIVE_THRESHOLD;
-    } else {
-      active = this._spaceDown;
+      return fresh && this._rawHardwareForce >= HARDWARE_ACTIVE_THRESHOLD;
     }
+    return this._spaceDown;
+  }
+
+  tick(dt) {
+    let active = this.isActivelyGripping();
 
     if (active) {
       this.holdAccumSec = Math.min(MAX_HOLD_FOR_FULL, this.holdAccumSec + dt);
@@ -83,6 +104,7 @@ export class GripInput {
       filters: [{ name: 'DXTR-Controller' }],
       optionalServices: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b'],
     });
+    this._bleDevice = device;
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
     const char = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a8');
@@ -90,6 +112,7 @@ export class GripInput {
     char.addEventListener('characteristicvaluechanged', (e) => {
       const json = new TextDecoder().decode(e.target.value);
       try {
+        if (this.onRawLine) this.onRawLine(json);
         const data = JSON.parse(json);
         if (data.fsrgrip_resistance !== undefined) {
           this.setHardwareForce(this._normalize(data.fsrgrip_resistance));
@@ -102,11 +125,19 @@ export class GripInput {
     this.connected = true;
     this.mode = 'ble';
     await this._sendModeCommand('storm-witch');
-    window.addEventListener('beforeunload', () => this._sendModeCommand('idle'));
   }
 
   async connectSerial() {
+    // If a port from a prior session is still held, close it before requesting a new one
+    if (this._serialPort) {
+      try { await this._serialPort.close(); } catch (_) {}
+      this._serialPort = null;
+    }
     const port = await navigator.serial.requestPort();
+    // Browser may hand back an already-open port from a prior tab — close it for a clean reopen
+    if (port.readable !== null) {
+      try { await port.close(); } catch (_) {}
+    }
     await port.open({ baudRate: 115200 });
     this._serialPort = port;
     this.connected = true;
@@ -115,6 +146,7 @@ export class GripInput {
     const decoder = new TextDecoderStream();
     port.readable.pipeTo(decoder.writable);
     const reader = decoder.readable.getReader();
+    this._serialReader = reader;
     let buffer = '';
 
     const readLoop = async () => {
@@ -127,7 +159,9 @@ export class GripInput {
           buffer = lines.pop();
           for (const line of lines) {
             try {
-              const data = JSON.parse(line.trim());
+              const trimmed = line.trim();
+              if (trimmed && this.onRawLine) this.onRawLine(trimmed);
+              const data = JSON.parse(trimmed);
               if (data.fsrgrip_resistance !== undefined) {
                 this.setHardwareForce(this._normalize(data.fsrgrip_resistance));
               }
@@ -138,7 +172,6 @@ export class GripInput {
     };
     readLoop();
     await this._sendModeCommand('storm-witch');
-    window.addEventListener('beforeunload', () => this._sendModeCommand('idle'));
   }
 
   startSimulation() {

@@ -38,6 +38,62 @@
         image-rendering: crisp-edges;
       }
 
+      /* ── Serial monitor (raw controller lines) ───────────────────────── */
+      #serial-monitor {
+        position: fixed;
+        bottom: 10px;
+        left: 10px;
+        width: min(440px, 46vw);
+        max-height: min(220px, 30vh);
+        z-index: 380;
+        display: none;
+        flex-direction: column;
+        font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+        font-size: 11px;
+        line-height: 1.4;
+        background: rgba(14, 18, 32, 0.92);
+        color: #9fd8ff;
+        border: 1px solid rgba(91, 181, 207, 0.45);
+        border-radius: 10px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+        pointer-events: auto;
+      }
+      #serial-monitor.visible { display: flex; }
+      #serial-monitor .sm-head {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 10px;
+        background: rgba(22, 33, 62, 0.98);
+        color: #5bb5cf;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      #serial-monitor .sm-head button {
+        font: inherit;
+        padding: 2px 8px;
+        border-radius: 6px;
+        border: 1px solid rgba(173, 216, 230, 0.35);
+        background: rgba(173, 216, 230, 0.12);
+        color: #e8f4fc;
+        cursor: pointer;
+      }
+      #serial-monitor .sm-head button:hover { background: rgba(173, 216, 230, 0.22); }
+      #serial-monitor .sm-body {
+        flex: 1;
+        overflow: auto;
+        padding: 8px 10px;
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #serial-monitor .sm-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+
       /* Connection screen overlay */
       #connect-screen {
         position: fixed;
@@ -96,19 +152,44 @@
       .connect-card button:last-of-type {
         margin-bottom: 0;
       }
+      .connect-card button:focus-visible {
+        outline: 3px solid #c2e1a5;
+        outline-offset: 3px;
+      }
       .connect-card .patient-label {
         margin-top: 28px;
         font-size: 15px;
         color: rgba(255, 255, 255, 0.5);
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
       }
     </style>
   </head>
   <body>
     <canvas id="game" width="1280" height="720"></canvas>
 
-    <div id="connect-screen">
+    <!-- Serial monitor (shown when connected) -->
+    <div id="serial-monitor" aria-label="Serial debug output">
+      <div class="sm-head">
+        <span>Serial (temp)</span>
+        <div class="sm-actions">
+          <button type="button" id="serial-monitor-pause">Pause</button>
+          <button type="button" id="serial-monitor-toggle">Hide</button>
+          <button type="button" id="serial-monitor-clear">Clear</button>
+        </div>
+      </div>
+      <pre class="sm-body" id="serial-monitor-log"></pre>
+    </div>
+
+    <div id="connect-screen" role="dialog" aria-modal="true" aria-labelledby="sw-connect-title">
       <div class="connect-card">
-        <h1>Storm Witch</h1>
+        <h1 id="sw-connect-title">Storm Witch</h1>
         <div class="subtitle">Grip Therapy Edition</div>
         <button id="btn-ble">Connect via BLE</button>
         <button id="btn-usb">Connect via USB</button>
