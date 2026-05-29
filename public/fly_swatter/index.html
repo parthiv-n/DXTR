@@ -981,15 +981,9 @@ window._skipConnection = function() {
 
 document.getElementById('serial-monitor-clear').addEventListener('click', clearSerialMonitor);
 
-function cleanupSerialOnUnload() {
-  try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
-  // Fire-and-forget: must release the SerialPort before the iframe is destroyed,
-  // otherwise the next game's requestPort() returns an already-open port.
-  try { if (esp32Reader) { esp32Reader.cancel().catch(() => {}); esp32Reader = null; } } catch (_) {}
-  try { if (esp32Port)   { esp32Port.close().catch(() => {});    esp32Port   = null; } } catch (_) {}
-}
-window.addEventListener('pagehide',     cleanupSerialOnUnload);
-window.addEventListener('beforeunload', cleanupSerialOnUnload);
+window.addEventListener('beforeunload', () => {
+  if (esp32Connected) sendModeCommand('idle');
+});
 /* ────────────────────────────────────────────────────────────── */
 
 const TOTAL_LEVELS = 5;

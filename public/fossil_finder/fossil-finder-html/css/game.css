@@ -101,8 +101,15 @@ body {
 }
 
 #btn-start:hover {
-  transform: translateX(-50%) scale(1.03);
+  transform: translateX(-50%);
+  filter: brightness(1.08);
 }
+
+#btn-start:focus-visible {
+  outline: 3px solid #c8a87a;
+  outline-offset: 4px;
+}
+
 
 .credits-text {
   position: absolute;
@@ -228,7 +235,12 @@ body {
 }
 
 .btn-image:hover {
-  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.btn-image:focus-visible {
+  outline: 3px solid #c8a87a;
+  outline-offset: 4px;
 }
 
 .btn-image img {
@@ -302,7 +314,12 @@ body {
 }
 
 .level-entry.played:hover {
-  transform: scale(1.08);
+  filter: brightness(1.1);
+}
+
+.level-entry:focus-visible {
+  outline: 3px solid #c8a87a;
+  outline-offset: 4px;
 }
 
 .level-thumb {
@@ -363,5 +380,20 @@ body {
 }
 
 #btn-continue-end:hover {
-  transform: scale(1.03);
+  filter: brightness(1.08);
+}
+
+#btn-continue-end:focus-visible,
+#btn-level-select-close:focus-visible,
+#btn-encyclopedia:focus-visible {
+  outline: 3px solid #c8a87a;
+  outline-offset: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
