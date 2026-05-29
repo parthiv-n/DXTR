@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 
 export default function CarRacerPage() {
   const router = useRouter();
+
+  /** Fresh navigation from /patient must load a new game doc (avoid bfcache / stale iframe showing crash overlay). */
+  const iframeSrc = useMemo(() => {
+    const rev = Date.now();
+    return `/car-game/v5.therapy.html?patientId=edwin-001&_=${rev}`;
+  }, []);
 
   useEffect(() => {
     // Listen for messages from the game iframe
@@ -23,10 +29,10 @@ export default function CarRacerPage() {
     <div className="fixed inset-0 bg-black">
       {/* Game iframe - fills entire screen */}
       <iframe
-        src="/car-game/v5.therapy.html?patientId=edwin-001"
+        src={iframeSrc}
         className="w-full h-full border-0"
         title="Car Racer - DXTR Therapy Game"
-        allow="autoplay; serial; bluetooth"
+        allow="autoplay; serial"
       />
 
       {/* Floating back button - top left corner */}

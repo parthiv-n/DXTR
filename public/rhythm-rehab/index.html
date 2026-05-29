@@ -54,38 +54,6 @@
   .device-badge { position:fixed; bottom:12px; right:12px; z-index:30; padding:6px 14px; border-radius:20px; font-size:0.72rem; font-weight:700; background:rgba(26,16,40,0.8); border:1px solid var(--surface-light); backdrop-filter:blur(6px); }
   .device-badge.connected { color:var(--green); border-color:rgba(74,222,128,0.3); }
   .device-badge.disconnected { color:var(--red); border-color:rgba(248,113,113,0.3); }
-
-  /* ===== CALIBRATION SCREEN ===== */
-  .calib-image-placeholder { width:360px; max-width:80vw; height:220px; border:2px dashed rgba(167,139,204,0.4); border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:rgba(167,139,204,0.6); font-size:0.9rem; margin:16px auto 20px; gap:8px; }
-  .calib-image-placeholder .calib-icon { font-size:2.2rem; }
-  .calib-reading { font-size:1rem; color:var(--text-muted); margin-bottom:12px; }
-  .calib-reading strong { font-size:1.6rem; color:var(--teal); font-family:'Lilita One',cursive; }
-  .calib-countdown { font-size:0.95rem; color:var(--text-muted); }
-  .calib-countdown span { font-size:1.5rem; color:var(--accent); font-family:'Lilita One',cursive; }
-
-  #serial-monitor {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 100;
-    background: rgba(0,0,0,0.85);
-    border: 1px solid #7BC47F;
-    padding: 10px 14px;
-    border-radius: 10px;
-    font-size: 0.8em;
-    color: #e0e0e0;
-    font-family: "Courier New", monospace;
-    min-width: 170px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    backdrop-filter: blur(4px);
-    display: none;
-  }
-  #mon-pitch, #mon-roll, #mon-yaw,
-  #mon-adjusted, #mon-accel,
-  #mon-threshold, #mon-state {
-    font-weight: bold;
-    color: #5BB5CF;
-  }
 </style>
 </head>
 <body>
@@ -101,24 +69,6 @@
       <button class="btn btn-secondary" id="ble-btn">Connect via Bluetooth</button>
       <button class="btn" id="serial-btn">Connect via USB</button>
       <button class="btn btn-outline" id="skip-btn">Play with Keyboard</button>
-    </div>
-  </div>
-</div>
-
-<!-- CALIBRATION -->
-<div class="overlay hidden" id="calibration-screen">
-  <div class="card">
-    <h1>🥁 Calibrate Controller</h1>
-    <p class="sub">Hold your arm in the neutral drumming position, then wait for the countdown.</p>
-    <div class="calib-image-placeholder">
-      <span class="calib-icon">📷</span>
-      <span>Calibration image goes here</span>
-    </div>
-    <div class="calib-reading">
-      Current angle: <strong><span id="calib-pitch-display">--</span>°</strong>
-    </div>
-    <div class="calib-countdown">
-      Proceeding in <span id="calib-countdown">5</span>s&hellip;
     </div>
   </div>
 </div>
@@ -186,27 +136,6 @@
 </div>
 
 <div class="device-badge disconnected" id="device-badge">No Controller</div>
-
-<div id="serial-monitor">
-  <div style="font-weight:bold; margin-bottom:6px;">🔌 ESP32 Monitor</div>
-  <div style="font-size:0.85em; line-height:1.5;">
-    <div style="border-bottom:1px solid rgba(255,255,255,0.3); padding-bottom:6px; margin-bottom:6px;">
-      <div>Roll: <span id="mon-roll">--</span>°</div>
-      <div>Pitch: <span id="mon-pitch">--</span>°</div>
-      <div>Yaw: <span id="mon-yaw">--</span>°</div>
-    </div>
-    <div style="border-top:1px solid rgba(255,255,255,0.3); margin:6px 0; padding-top:6px;">
-      <div>Gyro X: <span id="mon-gx">--</span>°/s</div>
-      <div>Gyro Y: <span id="mon-gy">--</span>°/s</div>
-      <div>Gyro Z: <span id="mon-gz">--</span>°/s</div>
-      <div>Magnitude: <span id="mon-gyro-mag">--</span>°/s</div>
-    </div>
-    <div style="border-top:1px solid rgba(255,255,255,0.3); margin:6px 0; padding-top:6px;">
-      <div>Threshold: <span id="mon-threshold">150</span>°/s</div>
-      <div>State: <span id="mon-state">--</span></div>
-    </div>
-  </div>
-</div>
 
 <script>
 // =============================================
@@ -304,16 +233,11 @@ var serialReader = null;
 var serialBuffer = '';
 
 var latestPitch = 0;
-var latestRoll  = 0;
-var latestYaw   = 0;
-var latestGx = 0, latestGy = 0, latestGz = 0;
-var gyroMagnitude = 0;
 
 function updateDeviceBadge(connected, label) {
   var badge = document.getElementById('device-badge');
   badge.textContent = label || (connected ? 'Controller Connected' : 'No Controller');
   badge.className = 'device-badge ' + (connected ? 'connected' : 'disconnected');
-  document.getElementById('serial-monitor').style.display = connected ? 'block' : 'none';
 }
 
 function setConnStatus(text, cls) {
@@ -335,34 +259,16 @@ async function sendModeCommand(mode) {
   } catch (e) { console.warn('sendModeCommand failed:', e); }
 }
 
-function cleanupSerialOnUnload() {
-  try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
-  // Fire-and-forget: must release the SerialPort before the iframe is destroyed,
-  // otherwise the next game's requestPort() returns an already-open port.
-  try { if (typeof serialReader !== 'undefined' && serialReader) { serialReader.cancel().catch(() => {}); serialReader = null; } } catch (_) {}
-  try { if (esp32Port) { esp32Port.close().catch(() => {}); esp32Port = null; } } catch (_) {}
-}
-window.addEventListener('pagehide',     cleanupSerialOnUnload);
-window.addEventListener('beforeunload', cleanupSerialOnUnload);
+window.addEventListener('beforeunload', function() {
+  if (esp32Connected) sendModeCommand('idle');
+});
 
 function onSensorData(jsonStr) {
   try {
     var d = JSON.parse(jsonStr);
-    if (d.calibrating) return;
     if (typeof d.pitch === 'number') {
       latestPitch = d.pitch;
-      var calibScreen = document.getElementById('calibration-screen');
-      if (calibScreen && !calibScreen.classList.contains('hidden')) {
-        document.getElementById('calib-pitch-display').textContent = latestRoll.toFixed(1);
-      }
     }
-    if (typeof d.roll === 'number') latestRoll = d.roll;
-    if (typeof d.yaw  === 'number') latestYaw  = d.yaw;
-    if (typeof d.gx === 'number') latestGx = d.gx;
-    if (typeof d.gy === 'number') latestGy = d.gy;
-    if (typeof d.gz === 'number') latestGz = d.gz;
-    gyroMagnitude = Math.sqrt(latestGx * latestGx + latestGy * latestGy + latestGz * latestGz);
-    processGyroInput();
   } catch(e) {}
 }
 
@@ -374,7 +280,6 @@ function onBLEData(event) {
 function onBLEDisconnected() {
   esp32Connected = false;
   connectionType = null;
-  rollBaseline = 0;
   updateDeviceBadge(false);
 }
 
@@ -449,66 +354,28 @@ async function readSerialData() {
 }
 
 // =============================================
-// CALIBRATION
+// IMU PITCH -> DRUM INPUT (edge detection)
 // =============================================
-var rollBaseline = 0;
-var CALIB_COUNTDOWN_SECS = 5;  // easy to adjust
-var calibCountdownId = null;
+var PITCH_THRESHOLD = 15;
+var PITCH_NEUTRAL = 5;
+var pitchState = 'neutral'; // 'neutral' | 'up' | 'down'
 
-function startCalibCountdown() {
-  var remaining = CALIB_COUNTDOWN_SECS;
-  document.getElementById('calib-countdown').textContent = remaining;
-  calibCountdownId = setInterval(function() {
-    remaining -= 1;
-    document.getElementById('calib-countdown').textContent = remaining;
-    if (remaining <= 0) {
-      clearInterval(calibCountdownId);
-      calibCountdownId = null;
-      rollBaseline = latestRoll;
-      showOverlay('menu-screen');
-    }
-  }, 1000);
-}
-
-// =============================================
-// GYROSCOPE SPIKE -> DRUM INPUT
-// =============================================
-var GYRO_THRESHOLD = 150;     // deg/s magnitude to trigger a hit
-var GYRO_COOLDOWN_MS = 400;   // minimum ms between hits
-var gyroState = 'ready';      // 'ready' | 'cooldown'
-var lastGyroHitTime = 0;
-
-function processGyroInput() {
+function processPitchInput() {
   if (!esp32Connected) return;
-  if (gyroState === 'cooldown') {
-    if (performance.now() - lastGyroHitTime >= GYRO_COOLDOWN_MS) {
-      gyroState = 'ready';
+  if (pitchState === 'neutral') {
+    if (latestPitch > PITCH_THRESHOLD) {
+      pitchState = 'up';
+      keyJustPressed['ArrowUp'] = true;
+    } else if (latestPitch < -PITCH_THRESHOLD) {
+      pitchState = 'down';
+      keyJustPressed['ArrowDown'] = true;
     }
-    return;
-  }
-  if (gyroMagnitude >= GYRO_THRESHOLD) {
-    gyroState = 'cooldown';
-    lastGyroHitTime = performance.now();
-    keyJustPressed['ArrowDown'] = true;
+  } else {
+    if (Math.abs(latestPitch) < PITCH_NEUTRAL) {
+      pitchState = 'neutral';
+    }
   }
 }
-
-function updateSerialMonitor() {
-  document.getElementById('mon-roll').textContent      = latestRoll.toFixed(1);
-  document.getElementById('mon-pitch').textContent     = latestPitch.toFixed(1);
-  document.getElementById('mon-yaw').textContent       = latestYaw.toFixed(1);
-  document.getElementById('mon-gx').textContent        = latestGx.toFixed(1);
-  document.getElementById('mon-gy').textContent        = latestGy.toFixed(1);
-  document.getElementById('mon-gz').textContent        = latestGz.toFixed(1);
-  document.getElementById('mon-gyro-mag').textContent  = gyroMagnitude.toFixed(1);
-  document.getElementById('mon-threshold').textContent = GYRO_THRESHOLD;
-  document.getElementById('mon-state').textContent     = gyroState.toUpperCase();
-}
-
-(function monitorLoop() {
-  if (esp32Connected) updateSerialMonitor();
-  requestAnimationFrame(monitorLoop);
-})();
 
 // =============================================
 // AUDIO ENGINE
@@ -690,12 +557,12 @@ async function submitSetResults(repsForApi) {
 
 function buildRepsForApi(results) {
   return results.filter(Boolean).map(function(r, i) {
-    var isUp = false;
+    var isUp = i % 2 === 0;
     return {
       repNumber: i + 1,
       expectedDirection: isUp ? 'up' : 'down',
       actualDirection: r.success ? (isUp ? 'up' : 'down') : null,
-      achievedAngle: gyroMagnitude,
+      achievedAngle: Math.abs(latestPitch),
       success: r.success,
       reactionTimeMs: r.reactionTimeMs
     };
@@ -843,7 +710,7 @@ function drawTimeline(now) {
     const bt=beatTimes[i], relTime=bt-elapsed;
     const xPos=centerX+(relTime/visibleTime)*barW;
     if(xPos<barX-40||xPos>barX+barW+40)continue;
-    const isUp=false, result=dotResults[i];
+    const isUp=i%2===0, result=dotResults[i];
     let color,alpha=1;
     if(result==='perfect'){color='#4ade80';alpha=0.7;}
     else if(result==='good'){color='#fbbf24';alpha=0.7;}
@@ -990,6 +857,7 @@ function updateCountdown(now) {
 }
 
 function updatePlaying(now) {
+  processPitchInput();
 
   const elapsed=now-gameStartTime;
   const tempoMs = getTempoMs();
@@ -998,10 +866,10 @@ function updatePlaying(now) {
   if(currentRep<REPS){
     const beatTime=beatTimes[currentRep];
     const timeToBeat=beatTime-elapsed;
-    const isUp=false;
+    const isUp=currentRep%2===0;
 
     if(timeToBeat<repInterval*0.85&&timeToBeat>-reactionWindowMs){
-      showDirection='DOWN';
+      showDirection=isUp?'UP':'DOWN';
       directionAlpha=Math.min(directionAlpha+0.06,1);
       directionPulse+=0.1;
       if(timeToBeat>300) stickTarget=-0.8;
@@ -1010,7 +878,8 @@ function updatePlaying(now) {
     }
 
     if(Math.abs(elapsed-beatTime)<=reactionWindowMs&&!inputConsumed){
-      const expectedKey='ArrowDown';
+      const expectedKey=isUp?'ArrowUp':'ArrowDown';
+      const wrongKey=isUp?'ArrowDown':'ArrowUp';
       if(keyJustPressed[expectedKey]){
         const timeDiff=Math.abs(elapsed-beatTime);
         let result,pts;
@@ -1021,6 +890,15 @@ function updatePlaying(now) {
         repResults[currentRep]={result,reactionTimeMs:timeDiff,success:true};
         dotResults[currentRep]=result;
         playDrumStrike(); triggerHit();
+        directionAlpha=0; currentRep++; inputConsumed=false;
+        keyJustPressed={}; return;
+      }
+      if(keyJustPressed[wrongKey]){
+        const timeDiff=Math.abs(elapsed-beatTime);
+        repResults[currentRep]={result:'good',reactionTimeMs:timeDiff,success:true};
+        dotResults[currentRep]='good';
+        setScore+=25;
+        showFB('NICE!','#fbbf24'); playDrumStrike(); triggerHit();
         directionAlpha=0; currentRep++; inputConsumed=false;
         keyJustPressed={}; return;
       }
@@ -1119,7 +997,7 @@ function loop(now){
 // =============================================
 // FLOW: Connection -> Menu -> Game
 // =============================================
-async function onConnected(useDevice) {
+async function onConnected() {
   await fetchTodayProgress();
   var remaining = setsTarget - setsCompletedToday;
   if (remaining <= 0) {
@@ -1130,27 +1008,21 @@ async function onConnected(useDevice) {
   document.getElementById('menu-sets').textContent = SETS;
   document.getElementById('menu-total').textContent = SETS * REPS;
   document.getElementById('daily-status').textContent = 'Today: ' + setsCompletedToday + ' / ' + setsTarget + ' rounds completed';
-  if (useDevice) {
-    // Show calibration screen; countdown will advance to menu-screen
-    showOverlay('calibration-screen');
-    startCalibCountdown();
-  } else {
-    showOverlay('menu-screen');
-  }
+  showOverlay('menu-screen');
 }
 
 document.getElementById('ble-btn').addEventListener('click', async () => {
   var ok = await connectBLE();
-  if (ok) onConnected(true);
+  if (ok) onConnected();
 });
 
 document.getElementById('serial-btn').addEventListener('click', async () => {
   var ok = await connectSerial();
-  if (ok) onConnected(true);
+  if (ok) onConnected();
 });
 
 document.getElementById('skip-btn').addEventListener('click', async () => {
-  await onConnected(false);  // keyboard path — skip calibration
+  await onConnected();
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
