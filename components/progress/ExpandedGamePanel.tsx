@@ -95,18 +95,20 @@ export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId, cl
 
               <TabsContent value="reps">
                 <ChartContainer config={repsChartConfig} className="h-[250px] w-full">
-                  <BarChart data={repsData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <BarChart data={repsData} margin={{ top: 8, right: 8, bottom: 16, left: 18 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
                     <XAxis
                       dataKey="label"
                       tick={{ fontSize: 10, fill: "#9CA3AF" }}
                       axisLine={false}
                       tickLine={false}
+                      label={{ value: "Date", position: "insideBottom", offset: -4, style: { fill: "#9CA3AF", fontSize: 10 } }}
                     />
                     <YAxis
                       tick={{ fontSize: 10, fill: "#9CA3AF" }}
                       axisLine={false}
                       tickLine={false}
+                      label={{ value: "Reps", angle: -90, position: "insideLeft", offset: 8, style: { fill: "#9CA3AF", fontSize: 10 } }}
                     />
                     <ReferenceLine
                       y={game.targetRepsPerDay}
@@ -122,18 +124,26 @@ export function ExpandedGamePanel({ game, aggregate, dailyBuckets, patientId, cl
 
               <TabsContent value="outcome">
                 <ChartContainer config={outcomeChartConfig} className="h-[250px] w-full">
-                  <LineChart data={outcomeData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <LineChart data={outcomeData} margin={{ top: 8, right: 8, bottom: 16, left: 18 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
                     <XAxis
                       dataKey="label"
                       tick={{ fontSize: 10, fill: "#9CA3AF" }}
                       axisLine={false}
                       tickLine={false}
+                      label={{ value: "Date", position: "insideBottom", offset: -4, style: { fill: "#9CA3AF", fontSize: 10 } }}
                     />
                     <YAxis
                       tick={{ fontSize: 10, fill: "#9CA3AF" }}
                       axisLine={false}
                       tickLine={false}
+                      label={{
+                        value: `${game.primaryMetricLabel}${game.primaryMetricUnit ? ` (${game.primaryMetricUnit})` : ""}`,
+                        angle: -90,
+                        position: "insideLeft",
+                        offset: 8,
+                        style: { fill: "#9CA3AF", fontSize: 10, textAnchor: "middle" },
+                      }}
                     />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <Line
@@ -205,19 +215,21 @@ function DifficultyTab({
 
   return (
     <ChartContainer config={config} className="h-[250px] w-full">
-      <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+      <LineChart data={data} margin={{ top: 8, right: 8, bottom: 16, left: 18 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
         <XAxis
           dataKey="label"
           tick={{ fontSize: 10, fill: "#9CA3AF" }}
           axisLine={false}
           tickLine={false}
+          label={{ value: "Date", position: "insideBottom", offset: -4, style: { fill: "#9CA3AF", fontSize: 10 } }}
         />
         <YAxis
           tick={{ fontSize: 10, fill: "#9CA3AF" }}
           axisLine={false}
           tickLine={false}
           domain={[0, 100]}
+          label={{ value: "Success Rate (%)", angle: -90, position: "insideLeft", offset: 8, style: { fill: "#9CA3AF", fontSize: 10, textAnchor: "middle" } }}
         />
         <ChartTooltip content={<ChartTooltipContent />} />
         <Line
