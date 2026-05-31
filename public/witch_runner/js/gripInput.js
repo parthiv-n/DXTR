@@ -127,18 +127,37 @@ export class GripInput {
     await this._sendModeCommand('storm-witch');
   }
 
-  async connectSerial() {
-    // If a port from a prior session is still held, close it before requesting a new one
+  async connectSerial({ silent = false } = {}) {
+    // If a port from a prior session is still held, close it before reopening.
     if (this._serialPort) {
       try { await this._serialPort.close(); } catch (_) {}
       this._serialPort = null;
     }
-    const port = await navigator.serial.requestPort();
-    // Browser may hand back an already-open port from a prior tab — close it for a clean reopen
+
+    // Reuse a previously-granted port (no Chrome picker, no new entry in site
+    // permissions). silent=true means "only proceed if a grant already exists";
+    // silent=false falls back to the picker on first visit.
+    let port;
+    const granted = await navigator.serial.getPorts();
+    if (granted.length > 0) {
+      port = granted[0];
+    } else {
+      if (silent) return;
+      port = await navigator.serial.requestPort();
+    }
+
+    // Browser may hand back an already-open port from a prior tab — close it for a clean reopen.
     if (port.readable !== null) {
       try { await port.close(); } catch (_) {}
     }
-    await port.open({ baudRate: 115200 });
+
+    // Absorb the race between a previous iframe's close() and our open().
+    let lastErr;
+    for (let i = 0; i < 5; i++) {
+      try { await port.open({ baudRate: 115200 }); lastErr = null; break; }
+      catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 200)); }
+    }
+    if (lastErr) throw lastErr;
     this._serialPort = port;
     this.connected = true;
     this.mode = 'serial';
