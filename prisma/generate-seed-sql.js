@@ -89,6 +89,8 @@ const PATIENTS = [
   { id: "edwin-001",  name: "Edwin",  adherence: 0.85, setsAvg: 4.2, skillMult: 1.0  },
   { id: "giles-001",  name: "Giles",  adherence: 0.55, setsAvg: 2.8, skillMult: 0.80 },
   { id: "agatha-001", name: "Agatha", adherence: 0.92, setsAvg: 4.8, skillMult: 1.15 },
+  // Stroke recovery, mid-program: limited ROM, inconsistent attendance.
+  { id: "gordon-001", name: "Gordon", adherence: 0.65, setsAvg: 3.0, skillMult: 0.75 },
 ];
 
 const DAYS_BACK = 14;
