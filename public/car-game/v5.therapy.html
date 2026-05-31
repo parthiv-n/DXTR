@@ -1127,9 +1127,16 @@
       } catch (e) { console.warn('sendModeCommand failed:', e); }
     }
 
-    window.addEventListener('beforeunload', function() {
-      if (esp32Connected) sendModeCommand('idle');
-    });
+    // Release the SerialPort on iframe destruction so the next game can re-open
+    // it cleanly via getPorts(). pagehide is more reliable than beforeunload
+    // for iframe teardown.
+    function cleanupSerialOnUnload() {
+      try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
+      try { if (esp32Reader) { esp32Reader.cancel().catch(function(){}); esp32Reader = null; } } catch (_) {}
+      try { if (esp32Port)   { esp32Port.close().catch(function(){});    esp32Port   = null; } } catch (_) {}
+    }
+    window.addEventListener('pagehide',     cleanupSerialOnUnload);
+    window.addEventListener('beforeunload', cleanupSerialOnUnload);
 
     // Back/forward cache can restore mid-session (e.g. crash overlay visible). Force a clean start.
     window.addEventListener('pageshow', function(ev) {
@@ -1156,26 +1163,59 @@
     // ESP32 WEB SERIAL API FUNCTIONS
     //=========================================================================
 
-    async function connectESP32() {
+    // Returns a previously-granted port if one exists (no Chrome picker, no new
+    // entry in site permissions). Falls back to the picker only on first visit.
+    async function getOrRequestPort() {
+      var granted = await navigator.serial.getPorts();
+      if (granted.length > 0) return granted[0];
+      return await navigator.serial.requestPort();
+    }
+
+    // port.open() can race with the previous iframe's close() during fast game
+    // navigations — retry a few times to absorb the timing.
+    async function openWithRetry(port, options, tries, delayMs) {
+      tries = tries || 5; delayMs = delayMs || 200;
+      var lastErr;
+      for (var i = 0; i < tries; i++) {
+        try { await port.open(options); return; }
+        catch (e) { lastErr = e; await new Promise(function(r){ setTimeout(r, delayMs); }); }
+      }
+      throw lastErr;
+    }
+
+    async function connectESP32(opts) {
+      opts = opts || {};
+      var silent = !!opts.silent;
       if (!('serial' in navigator)) {
-        alert('Web Serial API not supported. Please use Chrome or Edge browser.');
+        if (!silent) alert('Web Serial API not supported. Please use Chrome or Edge browser.');
         return false;
       }
 
       try {
         updateESP32Status('connecting', 'Connecting...');
-        
-        esp32Port = await navigator.serial.requestPort();
-        await esp32Port.open({ baudRate: 115200 });
-        
+
+        if (silent) {
+          var granted = await navigator.serial.getPorts();
+          if (granted.length === 0) {
+            // No prior grant — bail without showing the picker so the manual
+            // Connect button still drives the first-time flow.
+            updateESP32Status('disconnected', 'Disconnected');
+            return false;
+          }
+          esp32Port = granted[0];
+        } else {
+          esp32Port = await getOrRequestPort();
+        }
+        await openWithRetry(esp32Port, { baudRate: 115200 });
+
         connectionType = 'serial';
         esp32Connected = true;
         updateESP32Status('connected', 'USB Connected');
         updateConnectButton(true);
-        
+
         readESP32Data();
         sendModeCommand('car-racer');
-        
+
         return true;
       } catch (error) {
         console.error('ESP32 connection error:', error);
@@ -1184,6 +1224,15 @@
         return false;
       }
     }
+
+    // Auto-reconnect on iframe mount if the origin already has a granted port —
+    // delivers the "click into a game, controller just works" UX across navs.
+    document.addEventListener('DOMContentLoaded', function() {
+      if (!('serial' in navigator)) return;
+      navigator.serial.getPorts().then(function(ports) {
+        if (ports.length > 0) connectESP32({ silent: true });
+      }).catch(function(){});
+    });
 
     async function disconnectESP32() {
       try {

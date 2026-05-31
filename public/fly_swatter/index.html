@@ -910,10 +910,34 @@ async function connectBLE() {
   await sendModeCommand('fly-swatter');
 }
 
-async function connectSerial() {
+// Reuse a previously-granted port (no Chrome picker, no new entry in site
+// permissions). Falls back to the picker on first visit only.
+async function getOrRequestPort() {
+  const granted = await navigator.serial.getPorts();
+  if (granted.length > 0) return granted[0];
+  return await navigator.serial.requestPort();
+}
+
+// Absorb the race between a previous iframe's close() and this iframe's open().
+async function openWithRetry(port, options, tries = 5, delayMs = 200) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try { await port.open(options); return; }
+    catch (e) { lastErr = e; await new Promise(r => setTimeout(r, delayMs)); }
+  }
+  throw lastErr;
+}
+
+async function connectSerial({ silent = false } = {}) {
   if (!('serial' in navigator)) throw new Error('Web Serial not supported');
-  esp32Port = await navigator.serial.requestPort();
-  await esp32Port.open({ baudRate: 115200 });
+  if (silent) {
+    const granted = await navigator.serial.getPorts();
+    if (granted.length === 0) return;          // first-time visit — wait for user click
+    esp32Port = granted[0];
+  } else {
+    esp32Port = await getOrRequestPort();
+  }
+  await openWithRetry(esp32Port, { baudRate: 115200 });
   connectionType = 'serial';
   esp32Connected = true;
   const decoder = new TextDecoderStream();
@@ -996,8 +1020,23 @@ window._skipConnection = function() {
 
 document.getElementById('serial-monitor-clear').addEventListener('click', clearSerialMonitor);
 
-window.addEventListener('beforeunload', () => {
-  if (esp32Connected) sendModeCommand('idle');
+// Release the SerialPort on iframe teardown so the next game can re-open it
+// cleanly via getPorts(). pagehide fires more reliably than beforeunload on
+// iframe destruction.
+function cleanupSerialOnUnload() {
+  try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
+  try { if (esp32Reader) { esp32Reader.cancel().catch(() => {}); esp32Reader = null; } } catch (_) {}
+  try { if (esp32Port)   { esp32Port.close().catch(() => {});    esp32Port   = null; } } catch (_) {}
+}
+window.addEventListener('pagehide',     cleanupSerialOnUnload);
+window.addEventListener('beforeunload', cleanupSerialOnUnload);
+
+// Auto-reconnect on iframe mount if a port is already granted to this origin.
+document.addEventListener('DOMContentLoaded', () => {
+  if (!('serial' in navigator)) return;
+  navigator.serial.getPorts().then(ports => {
+    if (ports.length > 0) connectSerial({ silent: true }).catch(() => {});
+  }).catch(() => {});
 });
 /* ────────────────────────────────────────────────────────────── */
 

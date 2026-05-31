@@ -259,9 +259,15 @@ async function sendModeCommand(mode) {
   } catch (e) { console.warn('sendModeCommand failed:', e); }
 }
 
-window.addEventListener('beforeunload', function() {
-  if (esp32Connected) sendModeCommand('idle');
-});
+// Release the SerialPort on iframe teardown so the next game can re-open it
+// cleanly via getPorts(). pagehide fires reliably on iframe destruction.
+function cleanupSerialOnUnload() {
+  try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
+  try { if (serialReader) { serialReader.cancel().catch(function(){}); serialReader = null; } } catch (_) {}
+  try { if (esp32Port)    { esp32Port.close().catch(function(){});     esp32Port    = null; } } catch (_) {}
+}
+window.addEventListener('pagehide',     cleanupSerialOnUnload);
+window.addEventListener('beforeunload', cleanupSerialOnUnload);
 
 function onSensorData(jsonStr) {
   try {
@@ -313,15 +319,42 @@ async function connectBLE() {
   }
 }
 
-async function connectSerial() {
+// Reuse a previously-granted port (no Chrome picker, no new entry in site
+// permissions). Falls back to the picker on first visit only.
+async function getOrRequestPort() {
+  var granted = await navigator.serial.getPorts();
+  if (granted.length > 0) return granted[0];
+  return await navigator.serial.requestPort();
+}
+
+// Absorb the race between a previous iframe's close() and this iframe's open().
+async function openWithRetry(port, options, tries, delayMs) {
+  tries = tries || 5; delayMs = delayMs || 200;
+  var lastErr;
+  for (var i = 0; i < tries; i++) {
+    try { await port.open(options); return; }
+    catch (e) { lastErr = e; await new Promise(function(r){ setTimeout(r, delayMs); }); }
+  }
+  throw lastErr;
+}
+
+async function connectSerial(opts) {
+  opts = opts || {};
+  var silent = !!opts.silent;
   if (!('serial' in navigator)) {
-    setConnStatus('Web Serial not supported. Use Chrome or Edge.', 'error');
+    if (!silent) setConnStatus('Web Serial not supported. Use Chrome or Edge.', 'error');
     return false;
   }
   try {
-    setConnStatus('Select your DXTR controller...');
-    esp32Port = await navigator.serial.requestPort();
-    await esp32Port.open({ baudRate: 115200 });
+    if (silent) {
+      var granted = await navigator.serial.getPorts();
+      if (granted.length === 0) return false;
+      esp32Port = granted[0];
+    } else {
+      setConnStatus('Select your DXTR controller...');
+      esp32Port = await getOrRequestPort();
+    }
+    await openWithRetry(esp32Port, { baudRate: 115200 });
     connectionType = 'serial';
     esp32Connected = true;
     updateDeviceBadge(true, 'USB Connected');
@@ -329,10 +362,18 @@ async function connectSerial() {
     readSerialData();
     return true;
   } catch (e) {
-    setConnStatus('Serial connection failed.', 'error');
+    if (!silent) setConnStatus('Serial connection failed.', 'error');
     return false;
   }
 }
+
+// Auto-reconnect on iframe mount if a port is already granted to this origin.
+document.addEventListener('DOMContentLoaded', function() {
+  if (!('serial' in navigator)) return;
+  navigator.serial.getPorts().then(function(ports) {
+    if (ports.length > 0) connectSerial({ silent: true });
+  }).catch(function(){});
+});
 
 async function readSerialData() {
   if (!esp32Port || !esp32Port.readable) return;

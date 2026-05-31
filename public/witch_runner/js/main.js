@@ -231,6 +231,22 @@ if (btnBLE) btnBLE.addEventListener('click', onConnectBLE);
 if (btnUSB) btnUSB.addEventListener('click', onConnectUSB);
 if (btnSpace) btnSpace.addEventListener('click', onPlaySpace);
 
+// Auto-reconnect on iframe mount if a port is already granted to this origin.
+// Skips the connect-screen entirely for "click into game, just works" UX
+// across game navigations.
+(async () => {
+  if (!('serial' in navigator)) return;
+  try {
+    const granted = await navigator.serial.getPorts();
+    if (granted.length === 0) return;
+    await gripInput.connectSerial({ silent: true });
+    if (gripInput.connected) {
+      ui.inputSource = 'serial';
+      beginGame();
+    }
+  } catch (_) { /* user clicks Connect manually if this fails */ }
+})();
+
 async function beginGame() {
   if (connectScreen) connectScreen.style.display = 'none';
   resumeAudio();
