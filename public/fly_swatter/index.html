@@ -701,10 +701,19 @@ let esp32Port = null;
 let esp32Reader = null;
 let esp32Buffer = '';
 
-const SHOO_TRIGGER_CM = 2;
-const SHOO_COOLDOWN_MS = 600;
+// 20% less sensitive than the previous 2 cm — finger must come closer to register.
+const SHOO_TRIGGER_CM  = 1.6;
+// Must rise back above this before another swat can register (hysteresis).
+// Prevents one held flick from killing the next-spawned fly when its cooldown
+// happens to expire while the user's hand is still in the sensor's range.
+const SHOO_RELEASE_CM  = 5;
+// Longer than the fly-death → respawn cycle (~1 s) so a held finger can't
+// re-fire on the new fly purely on timing.
+const SHOO_COOLDOWN_MS = 1200;
 let lastDistanceCm = 999;
 let lastShooTime = 0;
+// false from the moment of a trigger until the sensor reading clears RELEASE_CM.
+let shooArmed = true;
 
 /** TEMP serial monitor — remove when done debugging */
 const SERIAL_MONITOR_MAX_LINES = 100;
@@ -839,7 +848,13 @@ function parseESP32Data(jsonStr) {
 
     appendSerialMonitorLine(`dist=${dist.toFixed(2)} prev=${prev.toFixed(2)}`);
 
-    if (dist < SHOO_TRIGGER_CM && now - lastShooTime > SHOO_COOLDOWN_MS) {
+    // Re-arm only after the user lifts their finger clear of the sensor.
+    // Without this, a sustained low reading (finger held near the sensor
+    // through a fly's death + respawn) would re-trigger on the next fly.
+    if (dist > SHOO_RELEASE_CM) shooArmed = true;
+
+    if (shooArmed && dist < SHOO_TRIGGER_CM && now - lastShooTime > SHOO_COOLDOWN_MS) {
+      shooArmed = false;
       lastShooTime = now;
       appendSerialMonitorLine('>>> SHOO TRIGGERED');
       // #region agent log
