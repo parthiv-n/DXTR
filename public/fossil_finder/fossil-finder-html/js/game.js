@@ -46,8 +46,13 @@ class Game {
     this._onFossilSensor = (event) => {
       if (event.origin !== window.location.origin) return;
       const msg = event.data;
-      if (msg?.type === "fossil-sensor" && typeof msg.deviation === "number") {
-        this.toolController.feedDeviation(msg.deviation);
+      if (
+        msg?.type === "fossil-sensor" &&
+        typeof msg.gx === "number" &&
+        typeof msg.gy === "number" &&
+        typeof msg.gz === "number"
+      ) {
+        this.toolController.feedGyro(msg.gx, msg.gy, msg.gz);
       }
     };
     window.addEventListener("message", this._onFossilSensor);
