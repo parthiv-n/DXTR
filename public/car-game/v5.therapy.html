@@ -427,21 +427,10 @@
       color: #6B5344;
     }
 
-    /* In-game ESP32 status indicator */
+    /* In-game ESP32 status indicator — hidden in production therapy mode.
+       Kept in DOM so existing JS references (esp32-game-roll, etc.) don't break. */
     #esp32-game-status {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 50;
-      background-color: rgba(255, 255, 255, 0.95);
-      padding: 8px 15px;
-      border: 2px solid #7BC47F;
-      border-radius: 8px;
-      font-size: 0.9em;
-      font-weight: bold;
-      color: #3a7a3e;
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: none;
+      display: none !important;
     }
 
     #esp32-game-status.disconnected {
@@ -562,7 +551,7 @@
       overflow: hidden;
       pointer-events: auto;
     }
-    #serial-monitor.visible { display: flex; }
+    #serial-monitor, #serial-monitor.visible { display: none !important; }
     #serial-monitor .sm-head {
       flex-shrink: 0;
       display: flex;
@@ -680,12 +669,12 @@
     <div id="esp32-status" class="disconnected"></div>
     <span id="roll-value">0.0</span>
     <div id="roll-marker"></div>
-    <span id="currentLeftThreshold">15</span>
-    <span id="currentRightThreshold">-15</span>
-    <span id="currentDeadZone">5</span>
-    <input id="leftThreshold" type="hidden" value="15">
-    <input id="rightThreshold" type="hidden" value="15">
-    <input id="deadZone" type="hidden" value="5">
+    <span id="currentLeftThreshold">8</span>
+    <span id="currentRightThreshold">-8</span>
+    <span id="currentDeadZone">3</span>
+    <input id="leftThreshold" type="hidden" value="8">
+    <input id="rightThreshold" type="hidden" value="8">
+    <input id="deadZone" type="hidden" value="3">
   </div>
 
   <!-- ===== GAME AREA (hidden until connected) ===== -->
@@ -1145,15 +1134,32 @@
       }
     });
 
-    // Threshold configuration (degrees)
-    var leftThreshold     = Util.toInt(Dom.storage.leftThreshold, 15);
-    var rightThreshold    = Util.toInt(Dom.storage.rightThreshold, 15);
-    var deadZone          = Util.toInt(Dom.storage.deadZone, 5);
+    // Threshold configuration (degrees) — defaults tuned for stroke patients
+    // with limited wrist range of motion.
+    var leftThreshold     = Util.toInt(Dom.storage.leftThreshold, 8);
+    var rightThreshold    = Util.toInt(Dom.storage.rightThreshold, 8);
+    var deadZone          = Util.toInt(Dom.storage.deadZone, 3);
 
     // Current sensor values
     var currentRoll       = 0;
     var smoothedRoll      = 0;
     var smoothingFactor   = 0.3;
+
+    // Gyroscope (deg/s) — used for the fast-twist input path.
+    var latestGx          = 0;
+    var latestGy          = 0;
+    var latestGz          = 0;
+    var gyroMagnitude     = 0;
+
+    // Dual-path input: fast gyro spike OR sustained roll tilt. Stroke patients
+    // can't reliably produce a sharp twist, so the slow-tilt dwell path is the
+    // primary route; the gyro spike is a fast-twist shortcut.
+    var GYRO_THRESHOLD       = Util.toInt(Dom.storage.gyroThreshold, 60);  // deg/s
+    var TILT_DWELL_MS        = Util.toInt(Dom.storage.tiltDwellMs, 200);   // ms a tilt must be held
+    var TRIGGER_COOLDOWN_MS  = 400;                                        // shared cooldown across both paths
+    var lastTriggerTime      = 0;
+    var tiltDirectionHeld    = null;
+    var tiltHeldStartTime    = 0;
 
     // ESP32 control state
     var esp32ControlActive = false;
@@ -1416,18 +1422,27 @@
       appendSerialMonitorLine(jsonString);
       try {
         var data = JSON.parse(jsonString);
-        
+
         if (typeof data.roll === 'number') {
           currentRoll = data.roll;
-          
+
           // Apply exponential moving average smoothing
           smoothedRoll = smoothedRoll * (1 - smoothingFactor) + currentRoll * smoothingFactor;
-          
+
           // Update displays
           updateRollDisplay(smoothedRoll);
-          
-          // Check thresholds and trigger controls
-          checkRollThresholds(smoothedRoll);
+
+          // Sustained-tilt path (slow steady motion — primary for stroke patients)
+          processSustainedTilt(smoothedRoll);
+        }
+
+        if (typeof data.gx === 'number') latestGx = data.gx;
+        if (typeof data.gy === 'number') latestGy = data.gy;
+        if (typeof data.gz === 'number') latestGz = data.gz;
+        if (typeof data.gx === 'number' || typeof data.gy === 'number' || typeof data.gz === 'number') {
+          gyroMagnitude = Math.sqrt(latestGx * latestGx + latestGy * latestGy + latestGz * latestGz);
+          // Fast-twist path (sharp wrist motion)
+          processGyroInput(latestGx, latestGy, latestGz);
         }
       } catch (error) {
         // Ignore invalid JSON lines (common during startup)
@@ -1438,35 +1453,66 @@
     // THRESHOLD CHECKING AND CONTROL INTEGRATION
     //=========================================================================
 
-    function checkRollThresholds(roll) {
-      // Only trigger controls when showing prompt and waiting for input
+    // Shared trigger funnel for both the sustained-tilt and gyro-spike paths.
+    // A wrong-direction read does NOT burn the cooldown — patients aren't
+    // penalized for a misread that never produced a dodge.
+    function tryTrigger(direction) {
+      if (therapyState !== 'showing_prompt') return;
+      var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) return;
+      lastEsp32Direction = direction;
+      if (direction === expectedDirection) {
+        lastTriggerTime = now;
+        startDodge(direction);
+      }
+    }
+
+    // Slow, steady tilt — the primary path for stroke patients who can't
+    // produce a fast wrist twist. Direction must be held past threshold for
+    // TILT_DWELL_MS before firing; dwell timer resets on dead-zone return or
+    // direction flip so the user isn't double-triggered while holding the pose.
+    function processSustainedTilt(roll) {
       if (therapyState !== 'showing_prompt') {
-        lastEsp32Direction = null;
+        lastEsp32Direction    = null;
+        tiltDirectionHeld     = null;
+        tiltHeldStartTime     = 0;
         return;
       }
 
       var direction = null;
-
-      // Check if roll exceeds thresholds (outside dead zone)
-      if (roll > leftThreshold) {
-        direction = 'left';
-      } else if (roll < -rightThreshold) {
-        direction = 'right';
-      } else if (Math.abs(roll) < deadZone) {
-        // In dead zone - reset last direction
-        lastEsp32Direction = null;
+      if (roll > leftThreshold)        direction = 'left';
+      else if (roll < -rightThreshold) direction = 'right';
+      else if (Math.abs(roll) < deadZone) {
+        lastEsp32Direction  = null;
+        tiltDirectionHeld   = null;
+        tiltHeldStartTime   = 0;
         return;
       }
 
-      // Trigger control if direction matches expected and hasn't been triggered yet
-      if (direction && direction !== lastEsp32Direction) {
-        lastEsp32Direction = direction;
-        
-        if (direction === expectedDirection) {
-          // Correct direction - trigger dodge
-          startDodge(direction);
-        }
+      if (!direction) return;
+
+      var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      if (direction !== tiltDirectionHeld) {
+        tiltDirectionHeld = direction;
+        tiltHeldStartTime = now;
+        return;
       }
+      if (now - tiltHeldStartTime >= TILT_DWELL_MS) {
+        tryTrigger(direction);
+        // After firing, require leaving the tilt before it can re-arm
+        tiltHeldStartTime = Number.MAX_SAFE_INTEGER;
+      }
+    }
+
+    // Fast wrist twist — gyro magnitude spike. Mirrors the pattern used by
+    // rhythm-rehab / fossil-finder. gx is the roll-axis rate on this firmware;
+    // its sign maps the same way smoothedRoll does (+ = left, − = right).
+    // Flip the ternary if hardware orientation reverses it.
+    function processGyroInput(gx, gy, gz) {
+      if (therapyState !== 'showing_prompt') return;
+      if (gyroMagnitude < GYRO_THRESHOLD) return;
+      var direction = (gx >= 0) ? 'left' : 'right';
+      tryTrigger(direction);
     }
 
     //=========================================================================
