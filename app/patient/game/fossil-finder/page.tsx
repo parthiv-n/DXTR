@@ -77,7 +77,7 @@ export default function FossilFinderPage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [usbConnected, setUsbConnected] = useState(false);
   const [serialLogLines, setSerialLogLines] = useState<string[]>([]);
-  const [serialMonitorOpen, setSerialMonitorOpen] = useState(true);
+  const [serialMonitorOpen, setSerialMonitorOpen] = useState(false);
   /** Ref so pause works without stale closures on WebSerial callbacks. */
   const serialPausedRef = useRef(false);
   const [serialPaused, setSerialPaused] = useState(false);
