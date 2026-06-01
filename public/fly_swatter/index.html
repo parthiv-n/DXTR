@@ -489,65 +489,6 @@
   #device-badge.connected { display: block; background: rgba(76,175,80,0.7); color: #fff; }
   #device-badge.disconnected { display: block; background: rgba(255,107,107,0.6); color: #fff; }
 
-  /* TEMP: in-game serial monitor — remove when done debugging */
-  #serial-monitor {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    width: min(440px, 46vw);
-    max-height: min(220px, 30vh);
-    z-index: 315;
-    display: none;
-    flex-direction: column;
-    font-family: ui-monospace, 'Cascadia Code', 'Consolas', monospace;
-    font-size: 11px;
-    line-height: 1.4;
-    background: rgba(22, 18, 16, 0.92);
-    color: #a8e6cf;
-    border: 1px solid rgba(139, 94, 60, 0.55);
-    border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-    overflow: hidden;
-    pointer-events: auto;
-  }
-  #serial-monitor.visible {
-    display: flex;
-  }
-  #serial-monitor .sm-head {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 6px 10px;
-    background: rgba(62, 39, 35, 0.95);
-    color: #F39C12;
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  #serial-monitor .sm-head button {
-    font: inherit;
-    padding: 2px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(253,246,227,0.35);
-    background: rgba(253,246,227,0.12);
-    color: #fdf6e3;
-    cursor: pointer;
-  }
-  #serial-monitor .sm-head button:hover {
-    background: rgba(253,246,227,0.22);
-  }
-  #serial-monitor .sm-body {
-    flex: 1;
-    overflow: auto;
-    padding: 8px 10px;
-    margin: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.01ms !important;
@@ -570,15 +511,6 @@
   <button id="overlay-skip" onclick="window._skipConnection()">Continue without device (keyboard)</button>
 </div>
 <div id="device-badge"></div>
-
-<!-- TEMP serial monitor — remove when done debugging -->
-<div id="serial-monitor" aria-label="Serial debug output">
-  <div class="sm-head">
-    <span>Serial (temp)</span>
-    <button type="button" id="serial-monitor-clear">Clear</button>
-  </div>
-  <pre class="sm-body" id="serial-monitor-log"></pre>
-</div>
 
 <div id="game-container">
   <div class="hud">
@@ -701,38 +633,10 @@ let esp32Port = null;
 let esp32Reader = null;
 let esp32Buffer = '';
 
-const SHOO_TRIGGER_CM = 2;
-const SHOO_COOLDOWN_MS = 600;
+const SHOO_TRIGGER_CM = 1.5;
+const SHOO_COOLDOWN_MS = 800;
 let lastDistanceCm = 999;
 let lastShooTime = 0;
-
-/** TEMP serial monitor — remove when done debugging */
-const SERIAL_MONITOR_MAX_LINES = 100;
-const serialMonitorLines = [];
-function appendSerialMonitorLine(raw) {
-  const box = document.getElementById('serial-monitor');
-  const pre = document.getElementById('serial-monitor-log');
-  if (!box || !pre || !box.classList.contains('visible')) return;
-  const line = typeof raw === 'string' ? raw : String(raw);
-  if (!line) return;
-  const ts = new Date().toLocaleTimeString(undefined, { hour12: false });
-  serialMonitorLines.push('[' + ts + '] ' + line);
-  while (serialMonitorLines.length > SERIAL_MONITOR_MAX_LINES) serialMonitorLines.shift();
-  pre.textContent = serialMonitorLines.join('\n');
-  pre.scrollTop = pre.scrollHeight;
-}
-function clearSerialMonitor() {
-  serialMonitorLines.length = 0;
-  const pre = document.getElementById('serial-monitor-log');
-  if (pre) pre.textContent = '';
-}
-function syncSerialMonitorBox() {
-  const box = document.getElementById('serial-monitor');
-  if (!box) return;
-  const connHidden = document.getElementById('connection-overlay').classList.contains('hidden');
-  if (esp32Connected && connHidden) box.classList.add('visible');
-  else box.classList.remove('visible');
-}
 
 function updateDeviceBadge(status) {
   const el = document.getElementById('device-badge');
@@ -749,123 +653,38 @@ function updateDeviceBadge(status) {
 
 async function sendModeCommand(mode) {
   const cmd = 'mode:' + mode;
-  // #region agent log
-  console.log('[DBG-H1H2] sendModeCommand called:', {mode, cmd, connectionType, hasBleCmd:!!bleCmdCharacteristic, hasPort:!!esp32Port});
-  window._dbgLog = (window._dbgLog || []);
-  window._dbgLog.push({t:Date.now(), h:'H1H2', m:'sendModeCommand', d:{mode,connectionType,hasBleCmd:!!bleCmdCharacteristic}});
-  // #endregion
   try {
     if (connectionType === 'ble' && bleCmdCharacteristic) {
       await bleCmdCharacteristic.writeValue(new TextEncoder().encode(cmd));
-      // #region agent log
-      console.log('[DBG-H2] BLE cmd write OK:', cmd);
-      window._dbgLog.push({t:Date.now(), h:'H2', m:'BLE write OK'});
-      // #endregion
     } else if (connectionType === 'serial' && esp32Port && esp32Port.writable) {
       const writer = esp32Port.writable.getWriter();
       await writer.write(new TextEncoder().encode(cmd + '\n'));
       writer.releaseLock();
-      // #region agent log
-      console.log('[DBG-H2] Serial cmd write OK:', cmd);
-      window._dbgLog.push({t:Date.now(), h:'H2', m:'Serial write OK'});
-      // #endregion
-    } else {
-      // #region agent log
-      console.warn('[DBG-H2] No write path matched:', {connectionType, hasBleCmd:!!bleCmdCharacteristic, hasPort:!!esp32Port});
-      window._dbgLog.push({t:Date.now(), h:'H2', m:'NO PATH', d:{connectionType}});
-      // #endregion
     }
   } catch (e) {
-    // #region agent log
-    console.error('[DBG-H2] sendModeCommand FAILED:', e);
-    window._dbgLog.push({t:Date.now(), h:'H2', m:'ERROR', d:{err:e.message}});
-    // #endregion
     console.warn('sendModeCommand failed:', e);
   }
 }
 
-let _parseCallCount = 0;
-function triggerSpacebarSwat() {
-  document.dispatchEvent(new KeyboardEvent('keydown', {
-    code: 'Space',
-    key: ' ',
-    bubbles: true,
-    cancelable: true
-  }));
-}
-
-function tryHandleSwat(source) {
-  const reasons = [];
-  if (!gameActive) reasons.push('gameInactive');
-  if (swiping) reasons.push('swiping');
-  if (!fly) reasons.push('noFly');
-  else if (!fly.alive) reasons.push('flyDead');
-
-  if (reasons.length > 0) {
-    const msg = `swat blocked [${source}]: ${reasons.join(', ')}`;
-    appendSerialMonitorLine(msg);
-    console.log('[DBG-SWAT]', msg, {
-      gameActive,
-      swiping,
-      hasFly: !!fly,
-      flyAlive: !!(fly && fly.alive)
-    });
-    return false;
-  }
-
-  handleSwat();
-  return true;
-}
-
 function parseESP32Data(jsonStr) {
-  _parseCallCount++;
-  const c = _parseCallCount;
-  // #region agent log
-  if (c <= 5) console.log('[DBG-H345] parse #' + c, jsonStr.substring(0, 120));
-  // #endregion
   try {
     const data = JSON.parse(jsonStr);
     const raw = data.distance_cm ?? data.distance ?? null;
-    // #region agent log
-    if (c <= 5) console.log('[DBG-H34] parsed #' + c, {keys: Object.keys(data), raw, hasDistCm:'distance_cm' in data, hasDist:'distance' in data});
-    // #endregion
     if (raw === null) return;
     const dist = Number(raw);
     if (isNaN(dist)) return;
 
-    const prev = lastDistanceCm;
     lastDistanceCm = dist;
     const now = performance.now();
 
-    appendSerialMonitorLine(`dist=${dist.toFixed(2)} prev=${prev.toFixed(2)}`);
-
     if (dist < SHOO_TRIGGER_CM && now - lastShooTime > SHOO_COOLDOWN_MS) {
       lastShooTime = now;
-      appendSerialMonitorLine('>>> SHOO TRIGGERED');
-      // #region agent log
-      console.log('[DBG-H4] SHOO TRIGGERED', {dist, prev});
-      // #endregion
-      // Route hardware triggers through the same input path as keyboard.
-      tryHandleSwat('sensor');
+      handleSwat();
     }
   } catch (e) {
-    appendSerialMonitorLine('PARSE ERR: ' + e.message);
-    // #region agent log
-    console.error('[DBG-H5] parse error:', e.message, 'raw:', jsonStr.substring(0, 80));
-    // #endregion
+    /* ignore malformed JSON */
   }
 }
-
-// #region agent log — dump debug state to log file every 3s
-setInterval(() => {
-  if (!window._dbgLog || !window._dbgLog.length) return;
-  const payload = window._dbgLog.splice(0);
-  payload.forEach(entry => {
-    fetch('http://127.0.0.1:7336/ingest/1af0788c-3b86-4387-9800-2df874bdef23',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3521fc'},body:JSON.stringify({sessionId:'3521fc',location:'index.html:periodic',message:entry.m,data:entry.d||{},timestamp:entry.t,hypothesisId:entry.h})}).catch(()=>{});
-  });
-  fetch('http://127.0.0.1:7336/ingest/1af0788c-3b86-4387-9800-2df874bdef23',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'3521fc'},body:JSON.stringify({sessionId:'3521fc',location:'index.html:periodic',message:'parseCallCount',data:{count:_parseCallCount,lastDist:lastDistanceCm},timestamp:Date.now(),hypothesisId:'H345'})}).catch(()=>{});
-}, 3000);
-// #endregion
 
 async function connectBLE() {
   if (!('bluetooth' in navigator)) throw new Error('Web Bluetooth not supported');
@@ -879,7 +698,6 @@ async function connectBLE() {
   await bleCharacteristic.startNotifications();
   bleCharacteristic.addEventListener('characteristicvaluechanged', (e) => {
     const text = new TextDecoder().decode(e.target.value);
-    appendSerialMonitorLine(text.trim());
     parseESP32Data(text);
   });
   try {
@@ -890,15 +708,32 @@ async function connectBLE() {
   bleDevice.addEventListener('gattserverdisconnected', () => {
     esp32Connected = false; connectionType = null;
     updateDeviceBadge('disconnected');
-    syncSerialMonitorBox();
   });
   await sendModeCommand('fly-swatter');
 }
 
+async function pickSerialPort() {
+  try {
+    const granted = await navigator.serial.getPorts();
+    if (granted.length >= 1) return granted[0];
+  } catch (_) { /* fall through */ }
+  return navigator.serial.requestPort();
+}
+
 async function connectSerial() {
   if (!('serial' in navigator)) throw new Error('Web Serial not supported');
-  esp32Port = await navigator.serial.requestPort();
-  await esp32Port.open({ baudRate: 115200 });
+  esp32Port = await pickSerialPort();
+  // Port may still be open from a prior page — close it before reopening.
+  if (esp32Port.readable !== null) {
+    try { await esp32Port.close(); } catch (_) {}
+  }
+  try {
+    await esp32Port.open({ baudRate: 115200 });
+  } catch (_) {
+    // Granted port might be unplugged or held — one explicit picker retry.
+    esp32Port = await navigator.serial.requestPort();
+    await esp32Port.open({ baudRate: 115200 });
+  }
   connectionType = 'serial';
   esp32Connected = true;
   const decoder = new TextDecoderStream();
@@ -914,17 +749,13 @@ async function connectSerial() {
         esp32Buffer = lines.pop();
         for (const line of lines) {
           const t = line.trim();
-          if (t) {
-            appendSerialMonitorLine(t);
-            parseESP32Data(t);
-          }
+          if (t) parseESP32Data(t);
         }
       }
     } catch (e) {
       if (esp32Connected) {
         esp32Connected = false;
         updateDeviceBadge('disconnected');
-        syncSerialMonitorBox();
       }
     }
   })();
@@ -939,7 +770,6 @@ function setOverlayButtonsDisabled(d) {
 function launchGame() {
   document.getElementById('connection-overlay').classList.add('hidden');
   updateDeviceBadge('connected');
-  syncSerialMonitorBox();
   if (esp32Connected) {
     document.getElementById('space-hint').innerHTML =
       '<span>Wave your hand near the sensor or press SPACE to shoo!</span>';
@@ -976,14 +806,21 @@ window._connectUSB = async function() {
 
 window._skipConnection = function() {
   document.getElementById('connection-overlay').classList.add('hidden');
-  syncSerialMonitorBox();
 };
 
-document.getElementById('serial-monitor-clear').addEventListener('click', clearSerialMonitor);
+function disconnectSerial() {
+  // Release reader and close port so the next page can reopen it.
+  try { if (esp32Reader) { esp32Reader.cancel().catch(() => {}); esp32Reader = null; } } catch (_) {}
+  try { if (esp32Port)   { esp32Port.close().catch(() => {});    esp32Port   = null; } } catch (_) {}
+}
 
-window.addEventListener('beforeunload', () => {
-  if (esp32Connected) sendModeCommand('idle');
-});
+function cleanupOnUnload() {
+  if (esp32Connected) { try { sendModeCommand('idle'); } catch (_) {} }
+  esp32Connected = false;
+  disconnectSerial();
+}
+window.addEventListener('pagehide',     cleanupOnUnload);
+window.addEventListener('beforeunload', cleanupOnUnload);
 /* ────────────────────────────────────────────────────────────── */
 
 const TOTAL_LEVELS = 5;
@@ -1278,11 +1115,7 @@ function handleSwat() {
   swiping = true;
   if (swatWatchdogTimer) clearTimeout(swatWatchdogTimer);
   swatWatchdogTimer = setTimeout(() => {
-    if (swiping) {
-      swiping = false;
-      appendSerialMonitorLine('swat watchdog reset (swiping was stuck)');
-      console.warn('[DBG-SWAT] watchdog reset swiping');
-    }
+    if (swiping) swiping = false;
   }, 1400);
   totalSwings++;
 
@@ -1299,15 +1132,8 @@ function handleSwat() {
   const flyDist = Math.hypot(flySnapX - p.x, flySnapY - p.y);
   const hitZone = 190 + currentLevel * 8;
   const isHit = flyDist < hitZone;
-  appendSerialMonitorLine(`swat eval: distToFly=${flyDist.toFixed(1)} hitZone=${hitZone} hit=${isHit}`);
 
-  try {
-    doShooAnimation(flySnapX, flySnapY);
-  } catch (err) {
-    const msg = err && err.message ? err.message : String(err);
-    appendSerialMonitorLine('shoo anim error: ' + msg);
-    console.error('[DBG-SWAT] doShooAnimation failed:', err);
-  }
+  doShooAnimation(flySnapX, flySnapY);
 
   const hitDelay = 240;
 
@@ -1541,9 +1367,9 @@ function restartGame() {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); tryHandleSwat('keyboard'); }
+  if (e.code === 'Space') { e.preventDefault(); handleSwat(); }
 });
-document.addEventListener('touchstart', e => { e.preventDefault(); tryHandleSwat('touch'); }, { passive: false });
+document.addEventListener('touchstart', e => { e.preventDefault(); handleSwat(); }, { passive: false });
 
 updateHUD();
 </script>

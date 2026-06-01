@@ -54,6 +54,24 @@
   .device-badge { position:fixed; bottom:12px; right:12px; z-index:30; padding:6px 14px; border-radius:20px; font-size:0.72rem; font-weight:700; background:rgba(26,16,40,0.8); border:1px solid var(--surface-light); backdrop-filter:blur(6px); }
   .device-badge.connected { color:var(--green); border-color:rgba(74,222,128,0.3); }
   .device-badge.disconnected { color:var(--red); border-color:rgba(248,113,113,0.3); }
+
+  #serial-monitor {
+    position: fixed; top: 10px; left: 10px; z-index: 100;
+    background: rgba(0,0,0,0.85); border: 1px solid #7BC47F;
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 0.78em; color: #e0e0e0;
+    font-family: "Courier New", monospace;
+    min-width: 190px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    backdrop-filter: blur(4px);
+  }
+  #serial-monitor .mon-section { padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.18); }
+  #serial-monitor .mon-section:first-of-type { border-top: none; padding-top: 0; }
+  #serial-monitor .mon-val { font-weight: bold; color: #5BB5CF; }
+  #serial-monitor .mon-state-cooldown { color: #ff6b35; }
+  #serial-monitor .mon-state-ready { color: #4ade80; }
+  #serial-monitor .mon-perfect { color: #4ade80; }
+  #serial-monitor .mon-good { color: #fbbf24; }
+  #serial-monitor .mon-miss { color: #f87171; }
 </style>
 </head>
 <body>
@@ -63,7 +81,7 @@
 <div class="overlay" id="connect-screen">
   <div class="card">
     <h1>Rhythm Rehab</h1>
-    <p class="sub">Connect your DXTR controller to play!<br>Flex and extend your wrist to drum the beat.</p>
+    <p class="sub">Connect your DXTR controller to play!<br>Flex your wrist down to drum the beat.</p>
     <div class="conn-status" id="conn-status"></div>
     <div class="conn-buttons">
       <button class="btn btn-secondary" id="ble-btn">Connect via Bluetooth</button>
@@ -136,6 +154,36 @@
 </div>
 
 <div class="device-badge disconnected" id="device-badge">No Controller</div>
+
+<div id="serial-monitor">
+  <div style="font-weight:bold; margin-bottom:6px;">Serial Monitor</div>
+  <div class="mon-section">
+    <div>Pitch:&nbsp;<span class="mon-val" id="mon-pitch">--</span>&deg;</div>
+    <div>Roll:&nbsp;&nbsp;<span class="mon-val" id="mon-roll">--</span>&deg;</div>
+    <div>Yaw:&nbsp;&nbsp;<span class="mon-val" id="mon-yaw">--</span>&deg;</div>
+  </div>
+  <div class="mon-section">
+    <div>Gx: <span class="mon-val" id="mon-gx">--</span>&deg;/s</div>
+    <div>Gy: <span class="mon-val" id="mon-gy">--</span>&deg;/s</div>
+    <div>Gz: <span class="mon-val" id="mon-gz">--</span>&deg;/s</div>
+    <div>Magnitude: <span class="mon-val" id="mon-gyro-mag">--</span>&deg;/s</div>
+  </div>
+  <div class="mon-section">
+    <div>Threshold: <span class="mon-val" id="mon-threshold">--</span>&deg;/s</div>
+    <div>State: <span id="mon-state">--</span></div>
+  </div>
+  <div class="mon-section">
+    <div>Rep: <span class="mon-val" id="mon-rep">0</span> / <span id="mon-reps-total">0</span></div>
+    <div>Set: <span class="mon-val" id="mon-set">0</span> / <span id="mon-sets-total">0</span></div>
+    <div>Score: <span class="mon-val" id="mon-score">0</span></div>
+    <div>
+      <span class="mon-perfect" id="mon-perfect">0</span> P&nbsp;/
+      <span class="mon-good" id="mon-good">0</span> G&nbsp;/
+      <span class="mon-miss" id="mon-miss">0</span> M
+    </div>
+    <div>Last: <span class="mon-val" id="mon-last">--</span></div>
+  </div>
+</div>
 
 <script>
 // =============================================
@@ -233,6 +281,12 @@ var serialReader = null;
 var serialBuffer = '';
 
 var latestPitch = 0;
+var latestRoll = 0;
+var latestYaw = 0;
+var latestGx = 0;
+var latestGy = 0;
+var latestGz = 0;
+var gyroMagnitude = 0;
 
 function updateDeviceBadge(connected, label) {
   var badge = document.getElementById('device-badge');
@@ -259,16 +313,27 @@ async function sendModeCommand(mode) {
   } catch (e) { console.warn('sendModeCommand failed:', e); }
 }
 
-window.addEventListener('beforeunload', function() {
-  if (esp32Connected) sendModeCommand('idle');
-});
+function disconnectSerial() {
+  try { if (serialReader) { serialReader.cancel().catch(function(){}); serialReader = null; } } catch (_) {}
+  try { if (esp32Port)    { esp32Port.close().catch(function(){});    esp32Port    = null; } } catch (_) {}
+}
+function cleanupOnUnload() {
+  if (esp32Connected) { try { sendModeCommand('idle'); } catch (_) {} }
+  esp32Connected = false;
+  disconnectSerial();
+}
+window.addEventListener('pagehide',     cleanupOnUnload);
+window.addEventListener('beforeunload', cleanupOnUnload);
 
 function onSensorData(jsonStr) {
   try {
     var d = JSON.parse(jsonStr);
-    if (typeof d.pitch === 'number') {
-      latestPitch = d.pitch;
-    }
+    if (typeof d.pitch === 'number') latestPitch = d.pitch;
+    if (typeof d.roll  === 'number') latestRoll  = d.roll;
+    if (typeof d.yaw   === 'number') latestYaw   = d.yaw;
+    if (typeof d.gx    === 'number') latestGx    = d.gx;
+    if (typeof d.gy    === 'number') latestGy    = d.gy;
+    if (typeof d.gz    === 'number') latestGz    = d.gz;
   } catch(e) {}
 }
 
@@ -320,8 +385,17 @@ async function connectSerial() {
   }
   try {
     setConnStatus('Select your DXTR controller...');
-    esp32Port = await navigator.serial.requestPort();
-    await esp32Port.open({ baudRate: 115200 });
+    esp32Port = await pickSerialPort();
+    if (esp32Port.readable !== null) {
+      try { await esp32Port.close(); } catch (_) {}
+    }
+    try {
+      await esp32Port.open({ baudRate: 115200 });
+    } catch (_) {
+      // Granted port stale (unplugged or held) — explicit picker retry.
+      esp32Port = await navigator.serial.requestPort();
+      await esp32Port.open({ baudRate: 115200 });
+    }
     connectionType = 'serial';
     esp32Connected = true;
     updateDeviceBadge(true, 'USB Connected');
@@ -332,6 +406,14 @@ async function connectSerial() {
     setConnStatus('Serial connection failed.', 'error');
     return false;
   }
+}
+
+async function pickSerialPort() {
+  try {
+    var granted = await navigator.serial.getPorts();
+    if (granted.length >= 1) return granted[0];
+  } catch (_) { /* fall through */ }
+  return navigator.serial.requestPort();
 }
 
 async function readSerialData() {
@@ -354,28 +436,65 @@ async function readSerialData() {
 }
 
 // =============================================
-// IMU PITCH -> DRUM INPUT (edge detection)
+// IMU GYRO MAGNITUDE -> DRUM INPUT (impulse detection)
 // =============================================
-var PITCH_THRESHOLD = 15;
-var PITCH_NEUTRAL = 5;
-var pitchState = 'neutral'; // 'neutral' | 'up' | 'down'
+var GYRO_THRESHOLD = 75;       // deg/s — 50% of fef7919's 150
+var GYRO_COOLDOWN_MS = 600;
+var gyroState = 'ready';       // 'ready' | 'cooldown'
+var lastGyroHitTime = 0;
 
-function processPitchInput() {
+function processGyroInput() {
   if (!esp32Connected) return;
-  if (pitchState === 'neutral') {
-    if (latestPitch > PITCH_THRESHOLD) {
-      pitchState = 'up';
-      keyJustPressed['ArrowUp'] = true;
-    } else if (latestPitch < -PITCH_THRESHOLD) {
-      pitchState = 'down';
-      keyJustPressed['ArrowDown'] = true;
-    }
-  } else {
-    if (Math.abs(latestPitch) < PITCH_NEUTRAL) {
-      pitchState = 'neutral';
-    }
+  gyroMagnitude = Math.sqrt(latestGx*latestGx + latestGy*latestGy + latestGz*latestGz);
+  var now = performance.now();
+  if (gyroState === 'cooldown') {
+    if (now - lastGyroHitTime >= GYRO_COOLDOWN_MS) gyroState = 'ready';
+    return;
+  }
+  if (gyroMagnitude >= GYRO_THRESHOLD) {
+    gyroState = 'cooldown';
+    lastGyroHitTime = now;
+    keyJustPressed['ArrowDown'] = true;
   }
 }
+
+function updateSerialMonitor() {
+  document.getElementById('mon-pitch').textContent     = latestPitch.toFixed(1);
+  document.getElementById('mon-roll').textContent      = latestRoll.toFixed(1);
+  document.getElementById('mon-yaw').textContent       = latestYaw.toFixed(1);
+  document.getElementById('mon-gx').textContent        = latestGx.toFixed(1);
+  document.getElementById('mon-gy').textContent        = latestGy.toFixed(1);
+  document.getElementById('mon-gz').textContent        = latestGz.toFixed(1);
+  document.getElementById('mon-gyro-mag').textContent  = gyroMagnitude.toFixed(1);
+  document.getElementById('mon-threshold').textContent = GYRO_THRESHOLD;
+  var stateEl = document.getElementById('mon-state');
+  stateEl.textContent = gyroState.toUpperCase();
+  stateEl.className = gyroState === 'cooldown' ? 'mon-state-cooldown' : 'mon-state-ready';
+
+  document.getElementById('mon-rep').textContent        = currentRep;
+  document.getElementById('mon-reps-total').textContent = REPS;
+  document.getElementById('mon-set').textContent        = currentSet + 1;
+  document.getElementById('mon-sets-total').textContent = SETS;
+  document.getElementById('mon-score').textContent      = totalScore + setScore;
+
+  var p = 0, g = 0, m = 0, last = '--';
+  var all = allResults.concat(repResults.filter(Boolean));
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].result === 'perfect') p++;
+    else if (all[i].result === 'good') g++;
+    else if (all[i].result === 'miss') m++;
+  }
+  if (all.length) last = all[all.length - 1].result.toUpperCase();
+  document.getElementById('mon-perfect').textContent = p;
+  document.getElementById('mon-good').textContent    = g;
+  document.getElementById('mon-miss').textContent    = m;
+  document.getElementById('mon-last').textContent    = last;
+}
+
+(function monitorLoop() {
+  try { updateSerialMonitor(); } catch (e) {}
+  requestAnimationFrame(monitorLoop);
+})();
 
 // =============================================
 // AUDIO ENGINE
@@ -557,12 +676,11 @@ async function submitSetResults(repsForApi) {
 
 function buildRepsForApi(results) {
   return results.filter(Boolean).map(function(r, i) {
-    var isUp = i % 2 === 0;
     return {
       repNumber: i + 1,
-      expectedDirection: isUp ? 'up' : 'down',
-      actualDirection: r.success ? (isUp ? 'up' : 'down') : null,
-      achievedAngle: Math.abs(latestPitch),
+      expectedDirection: 'down',
+      actualDirection: r.success ? 'down' : null,
+      achievedAngle: gyroMagnitude,
       success: r.success,
       reactionTimeMs: r.reactionTimeMs
     };
@@ -595,7 +713,7 @@ function getTempoMs() { return 60000 / selectedSong.bpm; }
 // =============================================
 let keyJustPressed = {};
 window.addEventListener('keydown', (e) => {
-  if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.repeat) {
+  if (e.key === 'ArrowDown' && !e.repeat) {
     e.preventDefault(); keyJustPressed[e.key] = true;
   }
 });
@@ -710,18 +828,18 @@ function drawTimeline(now) {
     const bt=beatTimes[i], relTime=bt-elapsed;
     const xPos=centerX+(relTime/visibleTime)*barW;
     if(xPos<barX-40||xPos>barX+barW+40)continue;
-    const isUp=i%2===0, result=dotResults[i];
+    const result=dotResults[i];
     let color,alpha=1;
     if(result==='perfect'){color='#4ade80';alpha=0.7;}
     else if(result==='good'){color='#fbbf24';alpha=0.7;}
     else if(result==='miss'){color='#f87171';alpha=0.5;}
-    else{color=isUp?'#2dd4bf':'#ff6b35';}
+    else{color='#ff6b35';}
     ctx.globalAlpha=alpha;
 
     if(!result&&Math.abs(relTime)<repInterval*1.2){
       const glowR=mSize*1.8;
       const gg=ctx.createRadialGradient(xPos,barY,0,xPos,barY,glowR);
-      gg.addColorStop(0,(isUp?'rgba(45,212,191,':'rgba(255,107,53,')+'0.2)'); gg.addColorStop(1,'transparent');
+      gg.addColorStop(0,'rgba(255,107,53,0.2)'); gg.addColorStop(1,'transparent');
       ctx.fillStyle=gg; ctx.fillRect(xPos-glowR,barY-glowR,glowR*2,glowR*2);
     }
 
@@ -732,24 +850,17 @@ function drawTimeline(now) {
     ctx.fillStyle=result?'rgba(26,16,40,0.7)':'#fff';
     const as=mSize*0.45;
     ctx.beginPath();
-    if(isUp){
-      ctx.moveTo(xPos,barY-as); ctx.lineTo(xPos-as*0.65,barY+as*0.15);
-      ctx.lineTo(xPos-as*0.2,barY+as*0.15); ctx.lineTo(xPos-as*0.2,barY+as*0.6);
-      ctx.lineTo(xPos+as*0.2,barY+as*0.6); ctx.lineTo(xPos+as*0.2,barY+as*0.15);
-      ctx.lineTo(xPos+as*0.65,barY+as*0.15);
-    } else {
-      ctx.moveTo(xPos,barY+as); ctx.lineTo(xPos-as*0.65,barY-as*0.15);
-      ctx.lineTo(xPos-as*0.2,barY-as*0.15); ctx.lineTo(xPos-as*0.2,barY-as*0.6);
-      ctx.lineTo(xPos+as*0.2,barY-as*0.6); ctx.lineTo(xPos+as*0.2,barY-as*0.15);
-      ctx.lineTo(xPos+as*0.65,barY-as*0.15);
-    }
+    ctx.moveTo(xPos,barY+as); ctx.lineTo(xPos-as*0.65,barY-as*0.15);
+    ctx.lineTo(xPos-as*0.2,barY-as*0.15); ctx.lineTo(xPos-as*0.2,barY-as*0.6);
+    ctx.lineTo(xPos+as*0.2,barY-as*0.6); ctx.lineTo(xPos+as*0.2,barY-as*0.15);
+    ctx.lineTo(xPos+as*0.65,barY-as*0.15);
     ctx.closePath(); ctx.fill();
 
     if(!result){
       ctx.fillStyle='rgba(255,255,255,0.45)';
       ctx.font=`800 ${mSize*0.45}px 'Nunito',sans-serif`;
       ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(i+1,xPos,barY+(isUp?mSize*1.4:-mSize*1.4));
+      ctx.fillText(i+1,xPos,barY-mSize*1.4);
     }
     ctx.globalAlpha=1;
   }
@@ -763,20 +874,19 @@ function drawTimeline(now) {
 
 function drawDirectionIndicator() {
   if(directionAlpha<=0)return;
-  const isUp=showDirection==='UP', cx=W/2, cy=H*0.17;
+  const cx=W/2, cy=H*0.17;
   ctx.save(); ctx.globalAlpha=directionAlpha;
   const pulse=1+Math.sin(directionPulse)*0.07;
   ctx.translate(cx,cy); ctx.scale(pulse,pulse);
   const sz=Math.min(W*0.2,140);
-  const gc=isUp?'rgba(45,212,191,':'rgba(255,107,53,';
+  const gc='rgba(255,107,53,';
   const glow=ctx.createRadialGradient(0,0,sz*0.2,0,0,sz);
   glow.addColorStop(0,gc+'0.3)'); glow.addColorStop(1,gc+'0)');
   ctx.fillStyle=glow; ctx.fillRect(-sz,-sz,sz*2,sz*2);
   ctx.fillStyle=gc+'0.18)'; ctx.beginPath(); ctx.arc(0,0,sz*0.55,0,Math.PI*2); ctx.fill();
-  ctx.strokeStyle=isUp?'#2dd4bf':'#ff6b35'; ctx.lineWidth=4; ctx.stroke();
-  const as=sz*0.35; ctx.fillStyle=isUp?'#2dd4bf':'#ff6b35'; ctx.beginPath();
-  if(isUp){ctx.moveTo(0,-as);ctx.lineTo(-as*0.7,as*0.3);ctx.lineTo(-as*0.25,as*0.3);ctx.lineTo(-as*0.25,as);ctx.lineTo(as*0.25,as);ctx.lineTo(as*0.25,as*0.3);ctx.lineTo(as*0.7,as*0.3);}
-  else{ctx.moveTo(0,as);ctx.lineTo(-as*0.7,-as*0.3);ctx.lineTo(-as*0.25,-as*0.3);ctx.lineTo(-as*0.25,-as);ctx.lineTo(as*0.25,-as);ctx.lineTo(as*0.25,-as*0.3);ctx.lineTo(as*0.7,-as*0.3);}
+  ctx.strokeStyle='#ff6b35'; ctx.lineWidth=4; ctx.stroke();
+  const as=sz*0.35; ctx.fillStyle='#ff6b35'; ctx.beginPath();
+  ctx.moveTo(0,as);ctx.lineTo(-as*0.7,-as*0.3);ctx.lineTo(-as*0.25,-as*0.3);ctx.lineTo(-as*0.25,-as);ctx.lineTo(as*0.25,-as);ctx.lineTo(as*0.25,-as*0.3);ctx.lineTo(as*0.7,-as*0.3);
   ctx.closePath(); ctx.fill();
   ctx.restore();
 }
@@ -857,7 +967,7 @@ function updateCountdown(now) {
 }
 
 function updatePlaying(now) {
-  processPitchInput();
+  processGyroInput();
 
   const elapsed=now-gameStartTime;
   const tempoMs = getTempoMs();
@@ -866,10 +976,9 @@ function updatePlaying(now) {
   if(currentRep<REPS){
     const beatTime=beatTimes[currentRep];
     const timeToBeat=beatTime-elapsed;
-    const isUp=currentRep%2===0;
 
     if(timeToBeat<repInterval*0.85&&timeToBeat>-reactionWindowMs){
-      showDirection=isUp?'UP':'DOWN';
+      showDirection='DOWN';
       directionAlpha=Math.min(directionAlpha+0.06,1);
       directionPulse+=0.1;
       if(timeToBeat>300) stickTarget=-0.8;
@@ -878,9 +987,7 @@ function updatePlaying(now) {
     }
 
     if(Math.abs(elapsed-beatTime)<=reactionWindowMs&&!inputConsumed){
-      const expectedKey=isUp?'ArrowUp':'ArrowDown';
-      const wrongKey=isUp?'ArrowDown':'ArrowUp';
-      if(keyJustPressed[expectedKey]){
+      if(keyJustPressed['ArrowDown']){
         const timeDiff=Math.abs(elapsed-beatTime);
         let result,pts;
         if(timeDiff<=200){result='perfect';pts=100;showFB('PERFECT!','#4ade80');}
@@ -890,15 +997,6 @@ function updatePlaying(now) {
         repResults[currentRep]={result,reactionTimeMs:timeDiff,success:true};
         dotResults[currentRep]=result;
         playDrumStrike(); triggerHit();
-        directionAlpha=0; currentRep++; inputConsumed=false;
-        keyJustPressed={}; return;
-      }
-      if(keyJustPressed[wrongKey]){
-        const timeDiff=Math.abs(elapsed-beatTime);
-        repResults[currentRep]={result:'good',reactionTimeMs:timeDiff,success:true};
-        dotResults[currentRep]='good';
-        setScore+=25;
-        showFB('NICE!','#fbbf24'); playDrumStrike(); triggerHit();
         directionAlpha=0; currentRep++; inputConsumed=false;
         keyJustPressed={}; return;
       }

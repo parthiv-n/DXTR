@@ -4,6 +4,10 @@ import Bus from "./bus.js";
 const TILT_TRIGGER_DEG = 14;
 const TILT_NEUTRAL_DEG = 10;
 
+// Gyro-magnitude spike input (mirrors rhythm-rehab and car-racer)
+const GYRO_THRESHOLD   = 75;   // deg/s
+const GYRO_COOLDOWN_MS = 1000;
+
 class ToolController {
   constructor(renderer, audioManager) {
     this.renderer = renderer;
@@ -34,6 +38,8 @@ class ToolController {
     }
     this.canHit = true;
     this._tiltArmed = true;
+    this._gyroState = 'ready';
+    this._lastGyroHitTime = 0;
     this.active = true;
     window.removeEventListener("keydown", this._onKeyDown);
     window.addEventListener("keydown", this._onKeyDown);
@@ -82,6 +88,30 @@ class ToolController {
       }
     } else if (Math.abs(deviation) < TILT_NEUTRAL_DEG) {
       this._tiltArmed = true;
+    }
+  }
+
+  /**
+   * Latest gyroscope rates (deg/s) from parent-forwarded serial JSON.
+   * A magnitude spike past GYRO_THRESHOLD fires the next expected stroke direction.
+   */
+  feedGyro(gx, gy, gz) {
+    if (!this.active || !this.canHit) return;
+    if (this.strokeCount >= this.totalStrokes) return;
+
+    const now = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    if (this._gyroState === 'cooldown') {
+      if (now - this._lastGyroHitTime >= GYRO_COOLDOWN_MS) this._gyroState = 'ready';
+      return;
+    }
+
+    const magnitude = Math.sqrt(gx * gx + gy * gy + gz * gz);
+    if (magnitude >= GYRO_THRESHOLD) {
+      this._gyroState = 'cooldown';
+      this._lastGyroHitTime = now;
+      const expected = this.getExpectedDirection();
+      this._handleStroke(expected);
+      this._notifyParentStrokeRegistered(magnitude, expected);
     }
   }
 

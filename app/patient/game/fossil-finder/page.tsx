@@ -151,10 +151,23 @@ export default function FossilFinderPage() {
         try {
           const obj = JSON.parse(line) as Record<string, unknown>;
           const d = obj.deviation;
+          const gx = obj.gx;
+          const gy = obj.gy;
+          const gz = obj.gz;
           if (typeof d === "number" && Number.isFinite(d)) {
+            const payload: {
+              type: string;
+              deviation: number;
+              gx?: number;
+              gy?: number;
+              gz?: number;
+            } = { type: "fossil-sensor", deviation: d };
+            if (typeof gx === "number" && Number.isFinite(gx)) payload.gx = gx;
+            if (typeof gy === "number" && Number.isFinite(gy)) payload.gy = gy;
+            if (typeof gz === "number" && Number.isFinite(gz)) payload.gz = gz;
             appendSerialLine(`→ forwarded to game: deviation=${d.toFixed(2)}°`);
             iframeRef.current?.contentWindow?.postMessage(
-              { type: "fossil-sensor", deviation: d },
+              payload,
               window.location.origin
             );
           }
