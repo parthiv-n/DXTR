@@ -1,8 +1,12 @@
 import Bus from "./bus.js";
 
-// Gyroscope spike detection: magnitude threshold + sign of gz for direction.
-const GYRO_TRIGGER_DEG_S = 150;  // deg/s magnitude to register a stroke
-const GYRO_COOLDOWN_MS = 250;    // minimum ms between strokes
+// Dual-IMU `deviation` (deg): twist one way for left stroke, the other for right.
+const TILT_TRIGGER_DEG = 14;
+const TILT_NEUTRAL_DEG = 10;
+
+// Gyro-magnitude spike input (mirrors rhythm-rehab and car-racer)
+const GYRO_THRESHOLD   = 75;   // deg/s
+const GYRO_COOLDOWN_MS = 1000;
 
 class ToolController {
   constructor(renderer, audioManager) {
@@ -13,7 +17,6 @@ class ToolController {
     this.canHit = true;
     this.hitDelay = 200;
     this.active = false;
-    this._lastGyroHitTime = 0;
 
     this.brushSounds = [
       "../assets/audio/sound_effects/brush/sfx_brush_stroke_normal-001.wav",
@@ -34,6 +37,8 @@ class ToolController {
       this.renderer.resetBrush();
     }
     this.canHit = true;
+    this._tiltArmed = true;
+    this._gyroState = 'ready';
     this._lastGyroHitTime = 0;
     this.active = true;
     window.removeEventListener("keydown", this._onKeyDown);
@@ -65,40 +70,62 @@ class ToolController {
   }
 
   /**
-   * Gyroscope rates from parent-forwarded serial JSON.
-   * Uses magnitude for spike detection and sign of gz for left/right direction.
+   * Latest `deviation` from parent-forwarded serial JSON (firmware IMU).
+   */
+  feedDeviation(deviation) {
+    if (!this.active || !this.canHit) return;
+    if (this.strokeCount >= this.totalStrokes) return;
+
+    const expected = this.getExpectedDirection();
+
+    if (this._tiltArmed) {
+      if (expected === -1 && deviation <= -TILT_TRIGGER_DEG) {
+        this._handleStroke(-1);
+        this._notifyParentStrokeRegistered(deviation, -1);
+      } else if (expected === 1 && deviation >= TILT_TRIGGER_DEG) {
+        this._handleStroke(1);
+        this._notifyParentStrokeRegistered(deviation, 1);
+      }
+    } else if (Math.abs(deviation) < TILT_NEUTRAL_DEG) {
+      this._tiltArmed = true;
+    }
+  }
+
+  /**
+   * Latest gyroscope rates (deg/s) from parent-forwarded serial JSON.
+   * A magnitude spike past GYRO_THRESHOLD fires the next expected stroke direction.
    */
   feedGyro(gx, gy, gz) {
     if (!this.active || !this.canHit) return;
     if (this.strokeCount >= this.totalStrokes) return;
 
-    const now = performance.now();
-    if (now - this._lastGyroHitTime < GYRO_COOLDOWN_MS) return;
+    const now = (typeof performance !== "undefined" ? performance.now() : Date.now());
+    if (this._gyroState === 'cooldown') {
+      if (now - this._lastGyroHitTime >= GYRO_COOLDOWN_MS) this._gyroState = 'ready';
+      return;
+    }
 
     const magnitude = Math.sqrt(gx * gx + gy * gy + gz * gz);
-    if (magnitude < GYRO_TRIGGER_DEG_S) return;
-
-    // gz sign determines twist direction: positive → left stroke, negative → right stroke
-    const direction = gz >= 0 ? -1 : 1;
-    const expected = this.getExpectedDirection();
-
-    if (direction === expected) {
+    if (magnitude >= GYRO_THRESHOLD) {
+      this._gyroState = 'cooldown';
       this._lastGyroHitTime = now;
-      this._handleStroke(direction);
-      this._notifyParentStrokeRegistered(magnitude, gz, direction);
+      const expected = this.getExpectedDirection();
+      this._handleStroke(expected);
+      this._notifyParentStrokeRegistered(magnitude, expected);
     }
   }
 
-  _notifyParentStrokeRegistered(magnitude, gz, direction) {
+  /** Embedded shell: log which deviation value registered as a brush stroke. */
+  _notifyParentStrokeRegistered(deviation, direction) {
     try {
       if (window.parent !== window) {
         window.parent.postMessage(
           {
             type: "fossil-stroke-registered",
-            magnitude,
-            gz,
+            deviation,
             direction,
-            triggerDegS: GYRO_TRIGGER_DEG_S,
+            triggerDeg: TILT_TRIGGER_DEG,
+            neutralDeg: TILT_NEUTRAL_DEG,
           },
           window.location.origin
         );

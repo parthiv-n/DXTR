@@ -76,13 +76,11 @@ export default function FossilFinderPage() {
   const [phase, setPhase] = useState<CalibPhase>("idle");
   const [statusMsg, setStatusMsg] = useState("");
   const [usbConnected, setUsbConnected] = useState(false);
+  const [serialLogLines, setSerialLogLines] = useState<string[]>([]);
   const [serialMonitorOpen, setSerialMonitorOpen] = useState(true);
   /** Ref so pause works without stale closures on WebSerial callbacks. */
   const serialPausedRef = useRef(false);
   const [serialPaused, setSerialPaused] = useState(false);
-  const serialLinesRef = useRef<string[]>([]);
-  const serialPreRef = useRef<HTMLPreElement>(null);
-  const serialDirtyRef = useRef(false);
 
   // Refs — no re-render when mutated
   const phaseRef      = useRef<CalibPhase>("idle");
@@ -103,20 +101,14 @@ export default function FossilFinderPage() {
   const appendSerialLine = useCallback((line: string) => {
     if (serialPausedRef.current) return;
     const ts = new Date().toLocaleTimeString(undefined, { hour12: false });
-    const buf = serialLinesRef.current;
-    buf.push(`[${ts}] ${line}`);
-    if (buf.length > SERIAL_LOG_MAX_LINES) {
-      serialLinesRef.current = buf.slice(-SERIAL_LOG_MAX_LINES);
-    }
-    serialDirtyRef.current = true;
+    setSerialLogLines((prev) => {
+      const next = [...prev, `[${ts}] ${line}`];
+      return next.length > SERIAL_LOG_MAX_LINES ? next.slice(-SERIAL_LOG_MAX_LINES) : next;
+    });
   }, []);
 
   const clearSerialLog = useCallback(() => {
-    serialLinesRef.current = [];
-    serialDirtyRef.current = true;
-    if (serialPreRef.current) {
-      serialPreRef.current.textContent = "Waiting for lines from the controller…";
-    }
+    setSerialLogLines([]);
   }, []);
 
   const clearAllTimers = useCallback(() => {
@@ -158,16 +150,24 @@ export default function FossilFinderPage() {
         if (!line.startsWith("{")) return;
         try {
           const obj = JSON.parse(line) as Record<string, unknown>;
+          const d = obj.deviation;
           const gx = obj.gx;
           const gy = obj.gy;
           const gz = obj.gz;
-          if (
-            typeof gx === "number" && Number.isFinite(gx) &&
-            typeof gy === "number" && Number.isFinite(gy) &&
-            typeof gz === "number" && Number.isFinite(gz)
-          ) {
+          if (typeof d === "number" && Number.isFinite(d)) {
+            const payload: {
+              type: string;
+              deviation: number;
+              gx?: number;
+              gy?: number;
+              gz?: number;
+            } = { type: "fossil-sensor", deviation: d };
+            if (typeof gx === "number" && Number.isFinite(gx)) payload.gx = gx;
+            if (typeof gy === "number" && Number.isFinite(gy)) payload.gy = gy;
+            if (typeof gz === "number" && Number.isFinite(gz)) payload.gz = gz;
+            appendSerialLine(`→ forwarded to game: deviation=${d.toFixed(2)}°`);
             iframeRef.current?.contentWindow?.postMessage(
-              { type: "fossil-sensor", gx, gy, gz },
+              payload,
               window.location.origin
             );
           }
@@ -192,11 +192,10 @@ export default function FossilFinderPage() {
 
     try {
       const ok = await device.connect(115200);
-      if (!ok) return; // onError already set the error state + message
+      if (!ok) throw new Error("Port selection cancelled");
       deviceRef.current = device;
       setUsbConnected(true);
-      serialLinesRef.current = [];
-      serialDirtyRef.current = true;
+      setSerialLogLines([]);
       void device.startReading();
       await device.writeLine("mode:fossil-finder");
       setPhaseSync("calibrating");
@@ -269,26 +268,6 @@ export default function FossilFinderPage() {
       }
     };
   }, [clearAllTimers]);
-
-  // ── RAF loop for serial monitor (avoids re-renders on every packet) ─────────
-
-  useEffect(() => {
-    let raf: number;
-    const tick = () => {
-      if (serialDirtyRef.current && serialPreRef.current) {
-        serialDirtyRef.current = false;
-        const lines = serialLinesRef.current;
-        serialPreRef.current.textContent =
-          lines.length === 0
-            ? "Waiting for lines from the controller…"
-            : lines.join("\n");
-        serialPreRef.current.scrollTop = serialPreRef.current.scrollHeight;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
 
   const serialSupported =
     typeof navigator !== "undefined" && "serial" in navigator;
@@ -370,11 +349,12 @@ export default function FossilFinderPage() {
           </div>
           {serialMonitorOpen && (
             <pre
-              ref={serialPreRef}
               className="m-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-2 font-mono text-[11px] leading-snug text-[#e8ddd4]"
               aria-label="USB serial debug output"
             >
-              Waiting for lines from the controller…
+              {serialLogLines.length === 0
+                ? "Waiting for lines from the controller…"
+                : serialLogLines.join("\n")}
             </pre>
           )}
         </div>

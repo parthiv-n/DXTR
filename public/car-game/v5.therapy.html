@@ -427,10 +427,21 @@
       color: #6B5344;
     }
 
-    /* In-game ESP32 status indicator — hidden in production therapy mode.
-       Kept in DOM so existing JS references (esp32-game-roll, etc.) don't break. */
+    /* In-game ESP32 status indicator */
     #esp32-game-status {
-      display: none !important;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 50;
+      background-color: rgba(255, 255, 255, 0.95);
+      padding: 8px 15px;
+      border: 2px solid #7BC47F;
+      border-radius: 8px;
+      font-size: 0.9em;
+      font-weight: bold;
+      color: #3a7a3e;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: none;
     }
 
     #esp32-game-status.disconnected {
@@ -551,7 +562,7 @@
       overflow: hidden;
       pointer-events: auto;
     }
-    #serial-monitor, #serial-monitor.visible { display: none !important; }
+    #serial-monitor.visible { display: none !important; }
     #serial-monitor .sm-head {
       flex-shrink: 0;
       display: flex;
@@ -669,12 +680,12 @@
     <div id="esp32-status" class="disconnected"></div>
     <span id="roll-value">0.0</span>
     <div id="roll-marker"></div>
-    <span id="currentLeftThreshold">8</span>
-    <span id="currentRightThreshold">-8</span>
-    <span id="currentDeadZone">3</span>
-    <input id="leftThreshold" type="hidden" value="8">
-    <input id="rightThreshold" type="hidden" value="8">
-    <input id="deadZone" type="hidden" value="3">
+    <span id="currentLeftThreshold">15</span>
+    <span id="currentRightThreshold">-15</span>
+    <span id="currentDeadZone">5</span>
+    <input id="leftThreshold" type="hidden" value="15">
+    <input id="rightThreshold" type="hidden" value="15">
+    <input id="deadZone" type="hidden" value="5">
   </div>
 
   <!-- ===== GAME AREA (hidden until connected) ===== -->
@@ -1116,16 +1127,18 @@
       } catch (e) { console.warn('sendModeCommand failed:', e); }
     }
 
-    // Release the SerialPort on iframe destruction so the next game can re-open
-    // it cleanly via getPorts(). pagehide is more reliable than beforeunload
-    // for iframe teardown.
-    function cleanupSerialOnUnload() {
-      try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
+    function disconnectSerialOnUnload() {
+      // Release reader and close port so the next page can reopen it.
       try { if (esp32Reader) { esp32Reader.cancel().catch(function(){}); esp32Reader = null; } } catch (_) {}
       try { if (esp32Port)   { esp32Port.close().catch(function(){});    esp32Port   = null; } } catch (_) {}
     }
-    window.addEventListener('pagehide',     cleanupSerialOnUnload);
-    window.addEventListener('beforeunload', cleanupSerialOnUnload);
+    function cleanupOnUnload() {
+      if (esp32Connected) { try { sendModeCommand('idle'); } catch (_) {} }
+      esp32Connected = false;
+      disconnectSerialOnUnload();
+    }
+    window.addEventListener('pagehide',     cleanupOnUnload);
+    window.addEventListener('beforeunload', cleanupOnUnload);
 
     // Back/forward cache can restore mid-session (e.g. crash overlay visible). Force a clean start.
     window.addEventListener('pageshow', function(ev) {
@@ -1134,85 +1147,53 @@
       }
     });
 
-    // Threshold configuration (degrees) — defaults tuned for stroke patients
-    // with limited wrist range of motion.
-    var leftThreshold     = Util.toInt(Dom.storage.leftThreshold, 8);
-    var rightThreshold    = Util.toInt(Dom.storage.rightThreshold, 8);
-    var deadZone          = Util.toInt(Dom.storage.deadZone, 3);
+    // Threshold configuration (degrees)
+    var leftThreshold     = Util.toInt(Dom.storage.leftThreshold, 15);
+    var rightThreshold    = Util.toInt(Dom.storage.rightThreshold, 15);
+    var deadZone          = Util.toInt(Dom.storage.deadZone, 5);
 
     // Current sensor values
     var currentRoll       = 0;
     var smoothedRoll      = 0;
     var smoothingFactor   = 0.3;
 
-    // Gyroscope (deg/s) — used for the fast-twist input path.
+    // ESP32 control state
+    var esp32ControlActive = false;
+
+    // Gyro-magnitude spike input (mirrors rhythm-rehab)
+    var GYRO_THRESHOLD    = 120;         // deg/s
+    var GYRO_COOLDOWN_MS  = 600;
     var latestGx          = 0;
     var latestGy          = 0;
     var latestGz          = 0;
     var gyroMagnitude     = 0;
-
-    // Dual-path input: fast gyro spike OR sustained roll tilt. Stroke patients
-    // can't reliably produce a sharp twist, so the slow-tilt dwell path is the
-    // primary route; the gyro spike is a fast-twist shortcut.
-    var GYRO_THRESHOLD       = Util.toInt(Dom.storage.gyroThreshold, 60);  // deg/s
-    var TILT_DWELL_MS        = Util.toInt(Dom.storage.tiltDwellMs, 200);   // ms a tilt must be held
-    var TRIGGER_COOLDOWN_MS  = 400;                                        // shared cooldown across both paths
-    var lastTriggerTime      = 0;
-    var tiltDirectionHeld    = null;
-    var tiltHeldStartTime    = 0;
-
-    // ESP32 control state
-    var esp32ControlActive = false;
-    var lastEsp32Direction = null;
+    var gyroState         = 'ready';     // 'ready' | 'cooldown'
+    var lastGyroHitTime   = 0;
 
     //=========================================================================
     // ESP32 WEB SERIAL API FUNCTIONS
     //=========================================================================
 
-    // Returns a previously-granted port if one exists (no Chrome picker, no new
-    // entry in site permissions). Falls back to the picker only on first visit.
-    async function getOrRequestPort() {
-      var granted = await navigator.serial.getPorts();
-      if (granted.length > 0) return granted[0];
-      return await navigator.serial.requestPort();
-    }
-
-    // port.open() can race with the previous iframe's close() during fast game
-    // navigations — retry a few times to absorb the timing.
-    async function openWithRetry(port, options, tries, delayMs) {
-      tries = tries || 5; delayMs = delayMs || 200;
-      var lastErr;
-      for (var i = 0; i < tries; i++) {
-        try { await port.open(options); return; }
-        catch (e) { lastErr = e; await new Promise(function(r){ setTimeout(r, delayMs); }); }
-      }
-      throw lastErr;
-    }
-
-    async function connectESP32(opts) {
-      opts = opts || {};
-      var silent = !!opts.silent;
+    async function connectESP32() {
       if (!('serial' in navigator)) {
-        if (!silent) alert('Web Serial API not supported. Please use Chrome or Edge browser.');
+        alert('Web Serial API not supported. Please use Chrome or Edge browser.');
         return false;
       }
 
       try {
         updateESP32Status('connecting', 'Connecting...');
 
-        if (silent) {
-          var granted = await navigator.serial.getPorts();
-          if (granted.length === 0) {
-            // No prior grant — bail without showing the picker so the manual
-            // Connect button still drives the first-time flow.
-            updateESP32Status('disconnected', 'Disconnected');
-            return false;
-          }
-          esp32Port = granted[0];
-        } else {
-          esp32Port = await getOrRequestPort();
+        esp32Port = await pickSerialPort();
+        if (esp32Port.readable !== null) {
+          try { await esp32Port.close(); } catch (_) {}
         }
-        await openWithRetry(esp32Port, { baudRate: 115200 });
+        try {
+          await esp32Port.open({ baudRate: 115200 });
+        } catch (_) {
+          // Granted port stale (unplugged or held) — explicit picker retry.
+          esp32Port = await navigator.serial.requestPort();
+          await esp32Port.open({ baudRate: 115200 });
+        }
 
         connectionType = 'serial';
         esp32Connected = true;
@@ -1231,14 +1212,13 @@
       }
     }
 
-    // Auto-reconnect on iframe mount if the origin already has a granted port —
-    // delivers the "click into a game, controller just works" UX across navs.
-    document.addEventListener('DOMContentLoaded', function() {
-      if (!('serial' in navigator)) return;
-      navigator.serial.getPorts().then(function(ports) {
-        if (ports.length > 0) connectESP32({ silent: true });
-      }).catch(function(){});
-    });
+    async function pickSerialPort() {
+      try {
+        var granted = await navigator.serial.getPorts();
+        if (granted.length >= 1) return granted[0];
+      } catch (_) { /* fall through */ }
+      return navigator.serial.requestPort();
+    }
 
     async function disconnectESP32() {
       try {
@@ -1425,25 +1405,16 @@
 
         if (typeof data.roll === 'number') {
           currentRoll = data.roll;
-
-          // Apply exponential moving average smoothing
           smoothedRoll = smoothedRoll * (1 - smoothingFactor) + currentRoll * smoothingFactor;
-
-          // Update displays
           updateRollDisplay(smoothedRoll);
-
-          // Sustained-tilt path (slow steady motion — primary for stroke patients)
-          processSustainedTilt(smoothedRoll);
         }
 
         if (typeof data.gx === 'number') latestGx = data.gx;
         if (typeof data.gy === 'number') latestGy = data.gy;
         if (typeof data.gz === 'number') latestGz = data.gz;
-        if (typeof data.gx === 'number' || typeof data.gy === 'number' || typeof data.gz === 'number') {
-          gyroMagnitude = Math.sqrt(latestGx * latestGx + latestGy * latestGy + latestGz * latestGz);
-          // Fast-twist path (sharp wrist motion)
-          processGyroInput(latestGx, latestGy, latestGz);
-        }
+
+        gyroMagnitude = Math.sqrt(latestGx*latestGx + latestGy*latestGy + latestGz*latestGz);
+        checkGyroSpike();
       } catch (error) {
         // Ignore invalid JSON lines (common during startup)
       }
@@ -1453,66 +1424,18 @@
     // THRESHOLD CHECKING AND CONTROL INTEGRATION
     //=========================================================================
 
-    // Shared trigger funnel for both the sustained-tilt and gyro-spike paths.
-    // A wrong-direction read does NOT burn the cooldown — patients aren't
-    // penalized for a misread that never produced a dodge.
-    function tryTrigger(direction) {
+    function checkGyroSpike() {
+      var now = performance.now();
+      if (gyroState === 'cooldown') {
+        if (now - lastGyroHitTime >= GYRO_COOLDOWN_MS) gyroState = 'ready';
+        return;
+      }
       if (therapyState !== 'showing_prompt') return;
-      var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-      if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) return;
-      lastEsp32Direction = direction;
-      if (direction === expectedDirection) {
-        lastTriggerTime = now;
-        startDodge(direction);
+      if (gyroMagnitude >= GYRO_THRESHOLD) {
+        gyroState = 'cooldown';
+        lastGyroHitTime = now;
+        startDodge(expectedDirection);
       }
-    }
-
-    // Slow, steady tilt — the primary path for stroke patients who can't
-    // produce a fast wrist twist. Direction must be held past threshold for
-    // TILT_DWELL_MS before firing; dwell timer resets on dead-zone return or
-    // direction flip so the user isn't double-triggered while holding the pose.
-    function processSustainedTilt(roll) {
-      if (therapyState !== 'showing_prompt') {
-        lastEsp32Direction    = null;
-        tiltDirectionHeld     = null;
-        tiltHeldStartTime     = 0;
-        return;
-      }
-
-      var direction = null;
-      if (roll > leftThreshold)        direction = 'left';
-      else if (roll < -rightThreshold) direction = 'right';
-      else if (Math.abs(roll) < deadZone) {
-        lastEsp32Direction  = null;
-        tiltDirectionHeld   = null;
-        tiltHeldStartTime   = 0;
-        return;
-      }
-
-      if (!direction) return;
-
-      var now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-      if (direction !== tiltDirectionHeld) {
-        tiltDirectionHeld = direction;
-        tiltHeldStartTime = now;
-        return;
-      }
-      if (now - tiltHeldStartTime >= TILT_DWELL_MS) {
-        tryTrigger(direction);
-        // After firing, require leaving the tilt before it can re-arm
-        tiltHeldStartTime = Number.MAX_SAFE_INTEGER;
-      }
-    }
-
-    // Fast wrist twist — gyro magnitude spike. Mirrors the pattern used by
-    // rhythm-rehab / fossil-finder. gx is the roll-axis rate on this firmware;
-    // its sign maps the same way smoothedRoll does (+ = left, − = right).
-    // Flip the ternary if hardware orientation reverses it.
-    function processGyroInput(gx, gy, gz) {
-      if (therapyState !== 'showing_prompt') return;
-      if (gyroMagnitude < GYRO_THRESHOLD) return;
-      var direction = (gx >= 0) ? 'left' : 'right';
-      tryTrigger(direction);
     }
 
     //=========================================================================
