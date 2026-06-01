@@ -55,15 +55,7 @@
   .device-badge.connected { color:var(--green); border-color:rgba(74,222,128,0.3); }
   .device-badge.disconnected { color:var(--red); border-color:rgba(248,113,113,0.3); }
 
-  #serial-monitor {
-    position: fixed; top: 10px; left: 10px; z-index: 100;
-    background: rgba(0,0,0,0.85); border: 1px solid #7BC47F;
-    padding: 10px 14px; border-radius: 10px;
-    font-size: 0.78em; color: #e0e0e0;
-    font-family: "Courier New", monospace;
-    min-width: 190px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-    backdrop-filter: blur(4px);
-  }
+  #serial-monitor { display: none !important; }
   #serial-monitor .mon-section { padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.18); }
   #serial-monitor .mon-section:first-of-type { border-top: none; padding-top: 0; }
   #serial-monitor .mon-val { font-weight: bold; color: #5BB5CF; }
