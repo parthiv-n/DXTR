@@ -463,6 +463,8 @@
     for (var i = 0; i < tries; i++) {
       try {
         if (port.readable !== null) {
+          // Release any reader lock before close, or close() races the locked stream.
+          if (esp32Reader) { try { await esp32Reader.cancel(); } catch (_) {} esp32Reader = null; }
           try { await port.close(); } catch (_) {}
         }
         await port.open(options);
@@ -486,9 +488,24 @@
         if (granted.length === 0) { updateDeviceStatus('disconnected'); return false; }
         esp32Port = granted[0];
       } else {
+        // Tear down any half-open handle left by a failed silent connect so we
+        // never inherit a locked stream.
+        esp32Connected = false;
+        if (esp32Reader) { try { await esp32Reader.cancel(); } catch (_) {} esp32Reader = null; }
+        if (esp32Port)   { try { await esp32Port.close();   } catch (_) {} esp32Port   = null; }
         esp32Port = await getOrRequestPort();
       }
-      await openWithRetry(esp32Port, { baudRate: 115200 });
+      try {
+        await openWithRetry(esp32Port, { baudRate: 115200 });
+      } catch (openErr) {
+        if (silent) throw openErr;
+        // The remembered port is stuck/stale (busy or unplugged). Forget it and
+        // ask Chrome for a fresh handle — automates the user's manual "clear
+        // serial-port memory" recovery so a single press still succeeds.
+        try { if (typeof esp32Port.forget === 'function') await esp32Port.forget(); } catch (_) {}
+        esp32Port = await navigator.serial.requestPort();
+        await openWithRetry(esp32Port, { baudRate: 115200 });
+      }
       connectionType = 'serial';
       esp32Connected = true;
       updateDeviceStatus('connected');
@@ -509,10 +526,18 @@
   }
 
   // Auto-reconnect on iframe mount if a port is already granted to this origin.
+  // On success, dismiss the overlay and start the game (mirrors the BLE
+  // auto-connect) so a remembered controller needs zero button presses.
   document.addEventListener('DOMContentLoaded', function() {
     if (!('serial' in navigator)) return;
     navigator.serial.getPorts().then(function(ports) {
-      if (ports.length > 0) connectESP32({ silent: true });
+      if (ports.length === 0) return;
+      connectESP32({ silent: true }).then(function(ok) {
+        if (!ok) return;
+        var status = document.getElementById('overlay-status');
+        if (status) { status.className = 'connected'; status.textContent = 'Controller connected!'; }
+        setTimeout(launchGame, 600);
+      });
     }).catch(function(){});
   });
 
@@ -800,6 +825,14 @@
     if (!('serial' in navigator)) {
       status.className = 'error';
       status.textContent = 'Web Serial API not supported. Use Chrome or Edge.';
+      return;
+    }
+    // Silent auto-connect may have already won the race — don't re-open the
+    // port (that would collide with the active reader lock and fail).
+    if (esp32Connected) {
+      status.className = 'connected';
+      status.textContent = 'Connected! Starting game...';
+      setTimeout(launchGame, 300);
       return;
     }
     setOverlayButtonsDisabled(true);
