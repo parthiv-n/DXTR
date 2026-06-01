@@ -444,14 +444,41 @@
 
   // ── USB Serial functions ────────────────────────────────────────────────────
 
-  async function connectESP32() {
+  // Reuse a previously-granted port (no Chrome picker, no new entry in site
+  // permissions). Falls back to the picker on first visit only.
+  async function getOrRequestPort() {
+    var granted = await navigator.serial.getPorts();
+    if (granted.length > 0) return granted[0];
+    return await navigator.serial.requestPort();
+  }
+
+  // Absorb the race between a previous iframe's close() and this iframe's open().
+  async function openWithRetry(port, options, tries, delayMs) {
+    tries = tries || 5; delayMs = delayMs || 200;
+    var lastErr;
+    for (var i = 0; i < tries; i++) {
+      try { await port.open(options); return; }
+      catch (e) { lastErr = e; await new Promise(function(r){ setTimeout(r, delayMs); }); }
+    }
+    throw lastErr;
+  }
+
+  async function connectESP32(opts) {
+    opts = opts || {};
+    var silent = !!opts.silent;
     if (!('serial' in navigator)) {
       return false;
     }
     try {
       updateDeviceStatus('connecting');
-      esp32Port = await navigator.serial.requestPort();
-      await esp32Port.open({ baudRate: 115200 });
+      if (silent) {
+        var granted = await navigator.serial.getPorts();
+        if (granted.length === 0) { updateDeviceStatus('disconnected'); return false; }
+        esp32Port = granted[0];
+      } else {
+        esp32Port = await getOrRequestPort();
+      }
+      await openWithRetry(esp32Port, { baudRate: 115200 });
       connectionType = 'serial';
       esp32Connected = true;
       updateDeviceStatus('connected');
@@ -466,6 +493,14 @@
       return false;
     }
   }
+
+  // Auto-reconnect on iframe mount if a port is already granted to this origin.
+  document.addEventListener('DOMContentLoaded', function() {
+    if (!('serial' in navigator)) return;
+    navigator.serial.getPorts().then(function(ports) {
+      if (ports.length > 0) connectESP32({ silent: true });
+    }).catch(function(){});
+  });
 
   async function readESP32Data() {
     if (!esp32Port || !esp32Port.readable) return;
