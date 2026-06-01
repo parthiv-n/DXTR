@@ -385,6 +385,7 @@
   }
 
   function cleanupSerialOnUnload() {
+    if (fsrWatchdogTimer) { clearTimeout(fsrWatchdogTimer); fsrWatchdogTimer = null; }
     try { if (esp32Connected) sendModeCommand('idle'); } catch (_) {}
     // Fire-and-forget: must release the SerialPort before the iframe is destroyed,
     // otherwise the next game's requestPort() returns an already-open port.
@@ -454,11 +455,19 @@
   }
 
   // Absorb the race between a previous iframe's close() and this iframe's open().
+  // If the port is still readable (open from a prior page that didn't fully release),
+  // close it first — otherwise port.open() throws "Failed to open serial port".
   async function openWithRetry(port, options, tries, delayMs) {
     tries = tries || 5; delayMs = delayMs || 200;
     var lastErr;
     for (var i = 0; i < tries; i++) {
-      try { await port.open(options); return; }
+      try {
+        if (port.readable !== null) {
+          try { await port.close(); } catch (_) {}
+        }
+        await port.open(options);
+        return;
+      }
       catch (e) { lastErr = e; await new Promise(function(r){ setTimeout(r, delayMs); }); }
     }
     throw lastErr;
@@ -484,7 +493,11 @@
       esp32Connected = true;
       updateDeviceStatus('connected');
       readESP32Data();
-      sendModeCommand('alien-abduction');
+      // Send mode command, then arm a watchdog: if no fsrbutton_voltage JSON
+      // arrives within 1.5 s, the firmware probably missed the switch
+      // (race when transitioning from a previous game's mode). Resend.
+      await sendModeCommand('alien-abduction');
+      armFsrWatchdog();
       return true;
     } catch (error) {
       console.error('ESP32 serial connection error:', error);
@@ -557,7 +570,8 @@
       connectionType = 'ble';
       esp32Connected = true;
       updateDeviceStatus('connected');
-      sendModeCommand('alien-abduction');
+      await sendModeCommand('alien-abduction');
+      armFsrWatchdog();
       return true;
     } catch (e) {
       bleDevice = null;
@@ -593,7 +607,8 @@
       connectionType = 'ble';
       esp32Connected = true;
       updateDeviceStatus('connected');
-      sendModeCommand('alien-abduction');
+      await sendModeCommand('alien-abduction');
+      armFsrWatchdog();
       return true;
     } catch (error) {
       console.error('BLE connection error:', error);
@@ -638,6 +653,7 @@
   async function disconnectESP32() {
     try {
       esp32Connected = false;
+      if (fsrWatchdogTimer) { clearTimeout(fsrWatchdogTimer); fsrWatchdogTimer = null; }
       if (connectionType === 'serial') {
         if (esp32Reader) { await esp32Reader.cancel(); esp32Reader = null; }
         if (esp32Port)   { await esp32Port.close();    esp32Port   = null; }
@@ -659,6 +675,29 @@
     }
   }
 
+  // ── FSR mode-command watchdog ───────────────────────────────────────────────
+  // If we connected but the firmware is still streaming a previous game's JSON
+  // shape (no fsrbutton_voltage), resend mode:alien-abduction. Cleared once we
+  // see real FSR data.
+  var sawFsrData = false;
+  var fsrWatchdogTimer = null;
+  function armFsrWatchdog() {
+    sawFsrData = false;
+    if (fsrWatchdogTimer) { clearTimeout(fsrWatchdogTimer); fsrWatchdogTimer = null; }
+    var attempts = 0;
+    var tick = function() {
+      if (!esp32Connected || sawFsrData) { fsrWatchdogTimer = null; return; }
+      attempts++;
+      try { sendModeCommand('alien-abduction'); } catch (_) {}
+      if (attempts < 4) {
+        fsrWatchdogTimer = setTimeout(tick, 1500);
+      } else {
+        fsrWatchdogTimer = null;
+      }
+    };
+    fsrWatchdogTimer = setTimeout(tick, 1500);
+  }
+
   // ── FSR button voltage → spacePressed mapping ───────────────────────────────
   // Reads fsrbutton_voltage and fsrbutton2_voltage directly; fires if either >= threshold
 
@@ -666,6 +705,7 @@
     try {
       var data = JSON.parse(jsonString);
       if (typeof data.fsrbutton_voltage === 'number' || typeof data.fsrbutton2_voltage === 'number') {
+        sawFsrData = true;
         var v1 = typeof data.fsrbutton_voltage  === 'number' ? data.fsrbutton_voltage  : 0;
         var v2 = typeof data.fsrbutton2_voltage === 'number' ? data.fsrbutton2_voltage : 0;
         var buttonVoltage = v1 > v2 ? v1 : v2;
